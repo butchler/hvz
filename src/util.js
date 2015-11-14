@@ -34,15 +34,21 @@ export function isInBounds(array, row, column) {
 }
 
 // Initialize three.js renderer, camera, and scene.
-export function initThree(container) {
+export function initThree(options) {
+    options = options || {};
+    options.clearColor = options.clearColor || 0x000000;
+    options.cameraFov = options.cameraFov || 50;
+    options.antialias = options.antialias || true;
+    options.shadowMapEnabled = options.shadowMapEnabled || true;
+
     // Initialize renderer
-    let renderer = new three.WebGLRenderer({ antialias: true });
-    renderer.setClearColor('black', 1.0);
+    let renderer = new three.WebGLRenderer({ antialias: options.antialias });
+    renderer.setClearColor(options.clearColor, 1.0);
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.enabled = options.shadowMapEnabled;
     document.body.appendChild(renderer.domElement);
 
-    let camera = new three.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+    let camera = new three.PerspectiveCamera(options.cameraFov, window.innerWidth / window.innerHeight, 0.1, 1000);
 
     // Resize canvas when window is resized.
     window.addEventListener('resize', function () {
@@ -88,6 +94,30 @@ export function animationLoop(callback, requestFrameFunction) {
 
     requestFrameFunction(render);
 }
+
+// Returns an object that contains the current state of keys being pressed.
+export function createKeyState() {
+    // Keep track of current keys being pressed.
+    let keyState = {};
+
+    document.addEventListener('keydown', event => {
+        keyState[event.keyCode] = true;
+        keyState[String.fromCharCode(event.keyCode).toLowerCase()] = true;
+    });
+    document.addEventListener('keyup', event => {
+        keyState[event.keyCode] = false;
+        keyState[String.fromCharCode(event.keyCode).toLowerCase()] = false;
+    });
+    document.addEventListener('blur', event => {
+        // Make it so that all keys are unpressed when the browser loses focus.
+        for (var key in keyState) {
+            if (keyState.hasOwnProperty(key))
+                keyState[key] = false;
+        }
+    });
+
+    return keyState;
+};
 
 export function shuffleArray(array) {
     // Fisher-Yates shuffle. Traverse array, randomly swapping elements.
