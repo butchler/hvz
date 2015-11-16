@@ -119,10 +119,25 @@ export function createKeyState() {
     return keyState;
 };
 
-export function shuffleArray(array) {
+export function shuffleArray(array, rng) {
+    rng = rng || Math.random;
+
     // Fisher-Yates shuffle. Traverse array, randomly swapping elements.
     for (let from = 0; from < array.length - 1; from++) {
-        let to = from + Math.floor(Math.random() * (array.length - from));
+        let to = from + Math.floor(rng() * (array.length - from));
         [array[from], array[to]] = [array[to], array[from]];
+    }
+}
+
+// Merges all values in the from object to the into object.
+// i.e. into[key] = from[key] for each key in from.
+export function merge(into, from) {
+    if (!(into instanceof Object))
+        throw new Error('Cannot merge into non-object');
+
+    for (let key in from) {
+        if (from.hasOwnProperty(key)) {
+            into[key] = from[key];
+        }
     }
 }

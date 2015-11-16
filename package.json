@@ -9,6 +9,8 @@
   "author": "Adam Buechler",
   "license": "ISC",
   "dependencies": {
+    "pcg-random": "^1.0.0",
+    "peerjs": "^0.3.14",
     "three": "^0.73.0"
   },
   "devDependencies": {

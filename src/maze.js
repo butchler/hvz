@@ -1,7 +1,9 @@
 import * as util from "./util";
 
 // Randomly generate a maze.
-export default function (width, height) {
+export function generateMaze(width, height, rng) {
+    rng = rng || Math.random;
+
     // Each cell is represented by a 3x3 subgrid, where the truthiness of the
     // cells on the left, top, right, and bottom of the subgrid represent
     // existence of four walls around that cell.
@@ -49,12 +51,13 @@ export default function (width, height) {
     // Initialize the grid to all true, meaning all walls are up by default.
     let grid = util.create2DArray(height * 2 + 1, width * 2 + 1, true);
 
-    drillMaze(grid);
+    drillMaze(grid, rng);
 
     createCaves(grid);
 
     // Convert grid to a more easy to work with representation of a maze.
     let maze = {
+        grid,
         wallGrid: util.create2DArray(height, width,
                           () => { return {north: false, south: false, east: false, west: false}; }),
         wallList: []
@@ -119,7 +122,7 @@ export default function (width, height) {
     return maze;
 }
 
-function drillMaze(grid) {
+function drillMaze(grid, rng) {
     if (grid.length < 3 || grid[0].length < 3)
         throw new Error('Grid too small');
 
@@ -155,12 +158,12 @@ function drillMaze(grid) {
         // Choose a random cell that we've already visited and try to move to
         // one of its unvisited neighboring cells, if it has any, knocking down
         // the wall in between the two cells.
-        let index = Math.floor(Math.random() * visited.length);
+        let index = Math.floor(rng() * visited.length);
         let position = visited[index];
 
         // Randomize the directions so that we choose the neighboring cell in a
         // random order.
-        util.shuffleArray(offsets);
+        util.shuffleArray(offsets, rng);
 
         // Find one neighboring cell that hasn't been visited, and knock down
         // the wall between this cell and that cell, adding the new cell to the
@@ -229,7 +232,7 @@ function createCaves(grid) {
     }
 }
 
-function printGrid(grid) {
+export function printGrid(grid) {
     for (let y = 0; y < grid.length; y++) {
         let row = '';
         for (let x = 0; x < grid[0].length; x++) {
