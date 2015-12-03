@@ -1,8 +1,8 @@
 import Peer from "peerjs";
-import {generateMaze} from "./maze";
+import {generateMaze} from "common/maze";
 import random from "pcg-random";
 import * as three from "three";
-import * as util from "./util";
+import * as util from "common/util";
 
 // Generate maze using a random seed that will be sent to clients, so that the
 // maze will be the same for all players. However, JavaScript's built in
@@ -23,7 +23,9 @@ let maze = generateMaze(width, height, rngFunction);
 // games.
 
 // Use PeerJS's public api key to allow peers to discover each other.
-let server = new Peer('server', {key: 'krk2f5egq95xko6r'});
+//let server = new Peer('server', {key: 'krk2f5egq95xko6r'});
+let server = new Peer('server', {host: 'localhost', port: 8000, path: '/peerjs'});
+console.log('Created server peer.');
 
 // Log status and quit if there is an error.
 server.on('open', serverId => {

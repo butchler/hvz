@@ -1,8 +1,9 @@
 import * as three from "three";
-import {generateMaze, printGrid} from "./maze";
+import {generateMaze, printGrid} from "common/maze";
 import random from "pcg-random";
-import * as util from "./util";
+import * as util from "common/util";
 import Peer from "peerjs";
+
 
 let {renderer, camera, scene} = util.initThree({ cameraFov: 65 });
 let cameraContainer = undefined;
@@ -21,7 +22,9 @@ let inputState = {
     left: false
 };
 
-let client = new Peer({key: 'krk2f5egq95xko6r'});
+//let client = new Peer({key: 'krk2f5egq95xko6r'});
+let client = new Peer({host: 'localhost', port: 8000, path: '/peerjs'});
+console.log('Created client peer.');
 let connection = undefined;
 let playerId = undefined;
 

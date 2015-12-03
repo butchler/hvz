@@ -1,3 +1,4 @@
 /node_modules
-/dist/bundle.js
-/dist/server.js
+/dist/client/client.js
+/dist/game-server/game-server.js
+/dist/web-server.js
