@@ -43,7 +43,8 @@ function watchBrowserify(fromFile, toFile, onUpdate) {
         entries: [fromFile],
         paths: ['src'],
         cache: {}, packageCache: {}, // Needed for watchify
-        plugin: [watchify]
+        plugin: [watchify],
+        debug: true
     });
 
     // When files are updated, write the bundle to a file and call optional
