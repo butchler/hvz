@@ -26,8 +26,8 @@ watchBabel('src/web-server.js', 'dist/web-server.js', function () {
 });
 
 // Automatically compile the client and game server code.
-watchBrowserify('src/game-server.js', 'dist/game-server/game-server.js');
-watchBrowserify('src/client.js', 'dist/client/client.js');
+watchBrowserify('src/game-server/index.js', 'dist/game-server/game-server.js');
+watchBrowserify('src/client/index.js', 'dist/client/client.js');
 
 // Start a livereload server to automatically refresh the client when
 // client.js is updated. Listens on port 35729 by default.

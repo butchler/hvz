@@ -141,3 +141,53 @@ export function merge(into, from) {
         }
     }
 }
+
+// Calls the given callbacks when a value is added, removed, or changed between
+// the old and new versions of an object.
+//
+// Callback signatures:
+//   add(key, value)
+//   remove(key, value)
+//   change(key, oldValue, newValue)
+//   addOrChange(key, newValue)
+//
+export function onDiff(oldObject, newObject, {add, remove, change, addOrChange}) {
+    // TODO: Add custom equality checking.
+
+    if (!(oldObject instanceof Object && newObject instanceof Object))
+        throw new Error('Cannot diff non-objects.');
+    if ((add && typeof add !== "function") ||
+            (remove && typeof remove !== "function") ||
+            (change && typeof change !== "function") ||
+            (addOrChange && typeof addOrChange !== "function"))
+        throw new Error('add/remove/change/addOrChange handlers must be functions.');
+
+    if (add || addOrChange) {
+        for (let key in newObject) {
+            if (!newObject.hasOwnProperty(key))
+                continue;
+
+            if (!oldObject.hasOwnProperty(key)) {
+                // Call add() when a value is in newObject but not in oldObject.
+                if (add) add(key, newObject[key]);
+                if (addOrChange) addOrChange(key, newObject[key]);
+            }
+        }
+    }
+
+    if (remove || change || addOrChange) {
+        for (let key in oldObject) {
+            if (!oldObject.hasOwnProperty(key))
+                continue;
+
+            if (!newObject.hasOwnProperty(key)) {
+                // Call remove() when a value is in oldObject but not in newObject.
+                if (remove) remove(key, oldObject[key]);
+            } else if (oldObject[key] !== newObject[key]) {
+                // Call change() when the values in newObject and oldObject differ.
+                if (change) change(key, oldObject[key], newObject[key]);
+                if (addOrChange) addOrChange(key, newObject[key]);
+            }
+        }
+    }
+}
