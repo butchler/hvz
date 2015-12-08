@@ -1,15 +1,13 @@
 import {Vector3} from "three";
 
-export default function updateState({ state, maze }, delta, now) {
+export function updateState({ state, maze }, delta, now) {
     for (let playerId in state.players) {
         updatePlayer({ player: state.players[playerId], maze }, delta, now);
     }
 }
 
 function updatePlayer({ player, maze }, delta, now) {
-    console.log('delta', delta);
-
-    const speed = 2;
+    const speed = player.inputState.zombie ? 5 : 2;
 
     let position = new Vector3(...player.position);
     let up = new Vector3(0, 1, 0);
@@ -48,4 +46,24 @@ function updatePlayer({ player, maze }, delta, now) {
     }
 
     player.position = [position.x, position.y, position.z];
+}
+
+const playerColors = ['red', 'blue', 'green', 'yellow', 'purple', 'pink', 'black', 'white', 'brown', 'orange'];
+let randomInt = (max) => Math.floor(Math.random()*max);
+export function addPlayer({ state, mazeWidth, mazeHeight }, playerId) {
+    state.players[playerId] = {
+        position: [randomInt(mazeWidth), 0, randomInt(mazeHeight)],
+        color: playerColors[randomInt(playerColors.length)],
+        inputState: {
+            mouse: {
+                x: 0,
+                y: 0
+            },
+            forward: false,
+            backward: false,
+            right: false,
+            left: false,
+            zombie: false
+        }
+    };
 }

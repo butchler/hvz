@@ -2,7 +2,7 @@ import * as three from "three";
 import random from "pcg-random";
 import {generateMaze} from "common/maze";
 import * as util from "common/util";
-import updateState from "common/update-state";
+import {updateState} from "common/update-state";
 
 let textureLoader = new three.TextureLoader();
 
@@ -78,6 +78,8 @@ export default {
             keyUpdate = { left: isDown };
         else if (key === 'd')
             keyUpdate = { right: isDown };
+        else if (key === ' ' && isDown)
+            keyUpdate = { zombie: !state.players[playerId].inputState.zombie };
 
         // Send key state update to server if one of the movement keys were
         // pressed or released.
@@ -133,6 +135,10 @@ export default {
         // Move camera to player's position.
         let playerPosition = new three.Vector3(...player.position);
         cameraContainer.position.copy(playerPosition);
+
+        // Narrow FOV if player is a zombie.
+        camera.fov = player.inputState.zombie ? 45 : 65;
+        camera.updateProjectionMatrix();
 
         // Update other player meshes.
         util.onDiff(previousState.players, state.players, {
