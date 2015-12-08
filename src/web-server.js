@@ -9,9 +9,7 @@ import {ExpressPeerServer} from "peer"; // Note: "peer" is PeerJS's PeerServer
 
 // Start simple file server on port 8000 serving files from dist/.
 let app = express();
-app.use(express.static(__dirname + '/client', {
-    maxAge: 1
-}));
+app.use(express.static(__dirname + '/client'));
 let server = app.listen(8000);
 
 // Start PeerJS PeerServer.
