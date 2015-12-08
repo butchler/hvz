@@ -1,4 +1,4 @@
 /node_modules
-/dist/client/client.js
-/dist/game-server/game-server.js
+/dist/client/index.js
+/dist/game-server/index.js
 /dist/web-server.js
