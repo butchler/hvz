@@ -7,7 +7,7 @@ import updateState from "common/update-state";
 let textureLoader = new three.TextureLoader();
 
 let renderer, camera, scene, cameraContainer;
-let previousState, state;
+let previousState, state, targetState;
 let playerId, sendInput, isConnected = false;
 let playerMeshes = {};
 let maze;
@@ -50,7 +50,7 @@ export default {
         playerId = clientId;
         sendInput = sendInputState;
         previousState = { players: {} };
-        state = initialState;
+        state = targetState = initialState;
 
         initMaze();
     },
@@ -61,9 +61,8 @@ export default {
         // Do not overwrite the client's input state. The server is the
         // authority on the state of the game, except for each player's input
         // state.
-        if (state && state.players && state.players[playerId] && state.players[playerId].inputState)
-            newState.players[playerId].inputState = state.players[playerId].inputState;
-        state = newState;
+        newState.players[playerId].inputState = state.players[playerId].inputState;
+        targetState = newState;
     },
     keyPressedOrReleased(keyCode, key, isDown) {
         if (!isConnected)
@@ -111,7 +110,9 @@ export default {
             return;
 
         // TODO: Base delta and now on the server's simulation time instead of the client's?
-        updateState({ state, maze }, delta, now);
+        updateState({ state: targetState, maze }, delta, now);
+
+        interpolateObjects(state, targetState, 0.3);
 
         // TODO: Handle error if playerId is not in state for some reason?
         let player = state.players[playerId];
@@ -158,6 +159,46 @@ export default {
         previousState = state;
     }
 };
+
+function interpolateObjects(fromObject, toObject, t) {
+    for (let key in toObject) {
+        let fromValue = fromObject[key], toValue = toObject[key];
+        if (isNumeric(fromValue) && isNumeric(toValue)) {
+            // Interpolate values if they are both numbers.
+            fromObject[key] = fromValue + (toValue - fromValue) * t;
+        } else if (Array.isArray(fromValue) && Array.isArray(toValue)) {
+            interpolateArrays(fromValue, toValue, t);
+        } else if (isObject(fromValue) && isObject(toValue)) {
+            interpolateObjects(fromValue, toValue, t);
+        } else {
+            fromObject[key] = toValue;
+        }
+    }
+}
+
+function interpolateArrays(fromArray, toArray, t) {
+    for (let i = 0; i < toArray.length; i++) {
+        let fromValue = fromArray[i], toValue = toArray[i];
+        if (isNumeric(fromValue) && isNumeric(toValue)) {
+            // Interpolate values if they are both numbers.
+            fromArray[i] = fromValue + (toValue - fromValue) * t;
+        } else if (Array.isArray(fromValue) && Array.isArray(toValue)) {
+            interpolateArrays(fromValue, toValue, t);
+        } else if (isObject(fromValue) && isObject(toValue)) {
+            interpolateObjects(fromValue, toValue, t);
+        } else {
+            fromArray[i] = toArray[i];
+        }
+    }
+}
+
+function isNumeric(n) {
+    return !isNaN(parseFloat(n)) && isFinite(n);
+}
+
+function isObject(obj) {
+    return obj !== null && typeof obj === 'object';
+}
 
 function initMaze() {
     const width = 10, height = 10;
