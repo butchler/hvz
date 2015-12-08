@@ -25,7 +25,7 @@ function connectToGameServer() {
             clientPeer.destroy();
 
         // Attempt to reconnect after 1 second.
-        setTimeout(connectToGameServer, 1000);
+        //setTimeout(connectToGameServer, 1000);
     };
 
     clientPeer.on('open', (clientId) => {

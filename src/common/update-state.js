@@ -34,15 +34,16 @@ function updatePlayer({ player, maze }, delta, now) {
     else if (player.inputState.left)
         position.sub(right);
 
+    const offset = 0.1;
     if (walls !== undefined) {
         if (walls.north)
-            position.z = Math.min(position.z, row + 0.3);
+            position.z = Math.min(position.z, row + 0.5 - offset);
         if (walls.south)
-            position.z = Math.max(position.z, row - 0.3);
+            position.z = Math.max(position.z, row - 0.5 + offset);
         if (walls.east)
-            position.x = Math.min(position.x, column + 0.3);
+            position.x = Math.min(position.x, column + 0.5 - offset);
         if (walls.west)
-            position.x = Math.max(position.x, column - 0.3);
+            position.x = Math.max(position.x, column - 0.5 + offset);
     }
 
     player.position = [position.x, position.y, position.z];

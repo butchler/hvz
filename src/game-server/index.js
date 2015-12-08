@@ -9,8 +9,7 @@ startServer();
     // Dirty hack using a web worker to get around the fact that
     // setTimeout/setInterval are throttled to 1 call per second if the page
     // isn't focused.
-    //let workerCode = "onmessage = function() { setTimeout(function () { postMessage('tock'); }, 1000 / 60); };";
-    let workerCode = "onmessage = function() { setTimeout(function () { postMessage('tock'); }, 1000 / 10); };";
+    let workerCode = "onmessage = function() { setTimeout(function () { postMessage('tock'); }, 1000 / 60); };";
     let workerURL = window.URL.createObjectURL(new Blob([workerCode]));
     let worker = new Worker(workerURL);
 
@@ -30,7 +29,7 @@ function startServer() {
             serverPeer.destroy();
 
         // Attempt to reconnect to signalling server after 1 second.
-        setTimeout(startServer, 1000);
+        //setTimeout(startServer, 1000);
     };
 
     // Log connection status and errors.

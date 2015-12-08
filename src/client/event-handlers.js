@@ -22,7 +22,7 @@ export default {
         renderer.shadowMap.enabled = true;
         document.body.appendChild(renderer.domElement);
 
-        camera = new three.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera = new three.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.001, 1000);
 
         // Resize canvas when window is resized.
         window.addEventListener('resize', function () {
@@ -87,8 +87,6 @@ export default {
             sendInput(keyUpdate);
 
             util.merge(state.players[playerId].inputState, keyUpdate);
-
-            console.log('keyUpdate', keyUpdate, 'inputState', state.players[playerId].inputState);
         }
     },
     mouseMoved(movementX, movementY) {
@@ -129,7 +127,9 @@ export default {
 
         // Rotate camera vertically.
         // Make it so that vertical rotation cannot loop.
-        let verticalAngle = Math.max(-Math.PI / 2, Math.min(Math.PI /2, -player.inputState.mouse.y * 0.002));
+        let maxMouseY = Math.PI / 2 / 0.002;
+        player.inputState.mouse.y = Math.max(-maxMouseY, Math.min(maxMouseY, player.inputState.mouse.y));
+        let verticalAngle = -player.inputState.mouse.y * 0.002;
         camera.rotation.x = verticalAngle;
 
         // Move camera to player's position.

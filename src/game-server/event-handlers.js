@@ -10,13 +10,13 @@ let state = {
     players: {}
 };
 let players = {};
-let maze, rng;
+let maze;
 
 export default {
     init() {
         state.randomSeed = Math.floor(Math.random() * 1000000);
 
-        rng = new random(state.randomSeed);
+        let rng = new random(state.randomSeed);
         let rngFunction = () => rng.number();
 
         maze = generateMaze(mazeWidth, mazeHeight, rngFunction);

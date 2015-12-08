@@ -82,7 +82,7 @@ export function animationLoop(callback, requestFrameFunction) {
         // one frame when they would normally move slowly toward the wall
         // over several frames), so make sure that the delta is never too
         // large.
-        animationDelta = Math.min(animationDelta, 1/30);
+        animationDelta = Math.min(animationDelta, 1/12);
 
         // Keep track of how many seconds of animation has passed.
         animationSeconds += animationDelta;
