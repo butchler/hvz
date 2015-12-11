@@ -2,12 +2,12 @@ import * as three from "three";
 import random from "pcg-random";
 import {generateMaze} from "common/maze";
 import * as util from "common/util";
-import {updateState} from "common/update-state";
+import {updatePlayer} from "common/update-state";
 
 let renderer, camera, scene, cameraContainer;
 let textureLoader = new three.TextureLoader();
 let playerId, sendInput, isConnected;
-let previousState, state, inputState, inputQueue, previousFrameTimestamp, lastStateTimestamp;
+let previousState, state, inputState, inputQueue, lastStateTimestamp;
 let playerMeshes = {};
 let maze;
 
@@ -45,7 +45,6 @@ export default {
 
         isConnected = false;
         lastStateTimestamp = 0;
-        previousFrameTimestamp = window.performance.now();
     },
     connected(clientId, sendInputStateFunction, initialState) {
         isConnected = true;
@@ -53,18 +52,15 @@ export default {
         playerId = clientId;
 
         inputQueue = [];
-        sendInput = (inputStateUpdate, updateTimestamp = true) => {
-            inputStateUpdate.timestamp = updateTimestamp ? window.performance.now() : inputState.timestamp;
-            sendInputStateFunction(inputStateUpdate);
-
-            util.mergeDeep(inputState, inputStateUpdate);
+        sendInput = (delta) => {
+            inputState.delta = delta;
+            inputState.timestamp = window.performance.now();
+            sendInputStateFunction(inputState);
 
             // Add to input queue to use client side prediction/server state reconcilation.
-            /*inputQueue.push(util.cloneObject(inputState));
-
             // Make sure queue doesn't grow infinitely.
-            if (inputQueue.length > 1000)
-                inputQueue.shift();*/
+            if (inputQueue.length < 1000)
+                inputQueue.push(util.cloneObject(inputState));
         };
 
         state = initialState;
@@ -84,41 +80,22 @@ export default {
         else
             lastStateTimestamp = newState.timestamp;
 
-        // TODO: Get client side prediction working.
-        // Reconcile state received from server with user input that the server
-        // hasn't received yet. lastInputTimestamp is the timestamp of the last
-        // input update that the server received before sending this update.
-        /*let lastInputTimestamp = newState.players[playerId].inputState.timestamp;
-        let input = inputQueue.shift(), nextInput;
-        let totalDelta = 0;
-        while (nextInput = inputQueue.shift()) {
-            // Throw away inputs that the server already received.
-            if (input.timestamp < lastInputTimestamp) {
-                input = nextInput;
+        // When a state update is received from the server, bring the state up
+        // to do with the latest inputs entered by the user during the round
+        // trip time between the client/server. Part of client side prediction.
+        let input, lastInputTimestamp = newState.players[playerId].inputState.timestamp;
+        while (input = inputQueue.shift()) {
+            if (input.timestamp < lastInputTimestamp)
                 continue;
-            }
 
-            // Update the server's state with the input the server hasn't seen yet.
             newState.players[playerId].inputState = input;
-            // The delta is the amount of time between the current input and
-            // when the next input is received.
-            let delta = (nextInput.timestamp - input.timestamp) / 1000;
-            totalDelta += delta;
-            updateState({ state: newState, maze }, delta);
+            updatePlayer({ state: newState, maze }, playerId, input.delta);
+        }
 
-            input = nextInput;
-        }*/
+        // Keep old player position so that there is no camera jerk from the
+        // server's state being slightly off from the client's state.
+        newState.players[playerId].position = state.players[playerId].position;
 
-        // Update the state one last time to bring it up to the previous frame
-        // time with the latest inputState.
-        /*newState.players[playerId].inputState = inputState;
-        let delta = (previousFrameTimestamp - inputState.timestamp) / 1000;
-        updateState({ state: newState, maze }, delta);*/
-
-        // Do not overwrite the client's input state. The server is the
-        // authority on the state of the game, except for each player's input
-        // state.
-        newState.players[playerId].inputState = inputState;
         state = newState;
     },
     keyPressedOrReleased(keyCode, key, isPressed) {
@@ -141,51 +118,41 @@ export default {
         // Send key state update to server if one of the movement keys were
         // pressed or released.
         if (keyUpdate !== undefined)
-            sendInput(keyUpdate);
+            util.merge(inputState, keyUpdate);
     },
     mouseMoved(movementX, movementY) {
         if (!isConnected)
             return;
 
-        // Send the new mouse position to the server.
-        sendInput({
-            mouse: {
-                x: inputState.mouse.x + movementX,
-                y: inputState.mouse.y + movementY
-            }
-        });
+        inputState.mouse.x += movementX;
+        inputState.mouse.y += movementY;
     },
     render(delta, now) {
         if (!isConnected)
             return;
 
-        //updateState({ state, maze }, delta);
+        // Simulate the state of the player given new inputs, regardless of the
+        // server's state. Part of client side prediction.
+        state.players[playerId].inputState = inputState;
+        updatePlayer({ state, maze }, playerId, delta);
 
         let player = state.players[playerId];
-
-        if (player === undefined) {
-            // Should never happen, but just in case.
-            alert('You have been removed from the game');
-            isConnected = false;
-        }
 
         if (previousState && player.isZombie !== previousState.players[playerId].isZombie) {
             // The player has transformed.
             inputState.wantsToTransform = false;
         }
 
-        // Resend the input state every frame just in case packets get dropped.
-        sendInput(inputState, false);
+        sendInput(delta);
 
         updateCamera(player);
 
+        // TODO: Add interpolation for other players' states.
         updateOtherPlayers();
 
         renderer.render(scene, camera);
 
         previousState = util.cloneObject(state);
-
-        previousFrameTimestamp = window.performance.now();
     }
 };
 

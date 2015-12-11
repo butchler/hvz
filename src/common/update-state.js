@@ -29,26 +29,26 @@ export function addPlayer({ state, mazeWidth, mazeHeight }, playerId) {
     };
 }
 
-export function updateState({ state, maze }, delta, now) {
+export function updateState({ state, maze }, delta) {
     for (let playerId in state.players) {
-        let player = state.players[playerId];
-
-        updatePlayer({ player, maze }, delta, now);
-
-        if (player.isZombie)
-            eatOtherPlayers(state.players, playerId);
+        updatePlayer({ state, maze }, playerId, delta);
     }
 }
 
-function updatePlayer({ player, maze }, delta, now) {
+export function updatePlayer({ state, maze }, playerId, delta) {
+    let player = state.players[playerId];
+
     if (player.inputState.wantsToTransform) {
         player.isZombie = !player.isZombie;
     }
 
-    movePlayer({ player, maze }, delta, now);
+    movePlayer({ player, maze }, delta);
+
+    if (player.isZombie)
+        eatOtherPlayers(state, playerId);
 }
 
-function movePlayer({ player, maze }, delta, now) {
+function movePlayer({ player, maze }, delta) {
     const speed = player.isZombie ? 5 : 2;
 
     let position = new Vector3(...player.position);
@@ -91,20 +91,20 @@ function movePlayer({ player, maze }, delta, now) {
     player.position = [position.x, position.y, position.z];
 }
 
-function eatOtherPlayers(players, playerId) {
-    let player = players[playerId];
+function eatOtherPlayers(state, playerId) {
+    let player = state.players[playerId];
     let playerPosition = new Vector3(...player.position);
 
     // If the player is a zombie, check if they have eatend any other players.
-    for (let otherPlayerId in players) {
+    for (let otherPlayerId in state.players) {
         if (otherPlayerId === playerId)
             continue;
 
-        let otherPlayer = players[otherPlayerId];
+        let otherPlayer = state.players[otherPlayerId];
         let otherPlayerPosition = new Vector3(...otherPlayer.position);
 
         // Turn other players into zombies if they are too close.
-        if (playerPosition.distanceTo(otherPlayerPosition) <= 0.2)
+        if (playerPosition.distanceTo(otherPlayerPosition) <= 0.5)
             otherPlayer.isZombie = true;
     }
 }

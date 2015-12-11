@@ -9,8 +9,7 @@ startServer();
     // Dirty hack using a web worker to get around the fact that
     // setTimeout/setInterval are throttled to 1 call per second if the page
     // isn't focused.
-    let workerCode = "onmessage = function() { setTimeout(function () { postMessage('tock'); }, 1000 / 60); };";
-    //let workerCode = "onmessage = function() { setTimeout(function () { postMessage('tock'); }, 1000 / 10); };";
+    let workerCode = "onmessage = function() { setTimeout(function () { postMessage('tock'); }, 1000 / 30); };";
     let workerURL = window.URL.createObjectURL(new Blob([workerCode]));
     let worker = new Worker(workerURL);
 

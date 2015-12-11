@@ -40,7 +40,7 @@ export default {
         util.mergeDeep(state.players[playerId].inputState, inputStateUpdate);
     },
     update(delta, now) {
-        updateState({ state, maze }, delta, now);
+        updateState({ state, maze }, delta);
 
         for (let playerId in playerConnections) {
             playerConnections[playerId].sendState(state);
