@@ -132,14 +132,46 @@ export function shuffleArray(array, rng) {
 // Merges all values in the from object to the into object.
 // i.e. into[key] = from[key] for each key in from.
 export function merge(into, from) {
-    if (!(into instanceof Object))
-        throw new Error('Cannot merge into non-object');
+    if (!isObject(into))
+        throw new Error('merge() cannot merge into non-object.');
 
     for (let key in from) {
         if (from.hasOwnProperty(key)) {
             into[key] = from[key];
         }
     }
+
+    return into;
+}
+
+// Merge values recursively.
+export function mergeDeep(into, from) {
+    if (!isObject(into))
+        throw new Error('mergeDeep() cannot merge into non-object.');
+
+    for (let key in from) {
+        if (!from.hasOwnProperty(key))
+            continue;
+
+        if (isObject(from[key])) {
+            // Create sub-objects if they don't exist.
+            if (!isObject(into[key]))
+                into[key] = Array.isArray(from[key]) ? new Array(from[key].length) : {};
+
+            mergeDeep(into[key], from[key]);
+        } else {
+            into[key] = from[key];
+        }
+    }
+
+    return into;
+}
+
+export function cloneObject(object) {
+    if (!isObject(object))
+        throw new Error('cloneObject() cannot clone non-object.');
+
+    return mergeDeep({}, object);
 }
 
 // Calls the given callbacks when a value is added, removed, or changed between
@@ -149,45 +181,140 @@ export function merge(into, from) {
 //   add(key, value)
 //   remove(key, value)
 //   change(key, oldValue, newValue)
-//   addOrChange(key, newValue)
+//   exists(key, newValue)
 //
-export function onDiff(oldObject, newObject, {add, remove, change, addOrChange}) {
+export function onDiff(oldObject, newObject, {add, remove, change, exists}, equals = objectsEqual) {
     // TODO: Add custom equality checking.
 
-    if (!(oldObject instanceof Object && newObject instanceof Object))
-        throw new Error('Cannot diff non-objects.');
+    if (!isObject(oldObject) || !isObject(newObject))
+        throw new Error('onDiff() cannot diff non-objects.');
     if ((add && typeof add !== "function") ||
             (remove && typeof remove !== "function") ||
             (change && typeof change !== "function") ||
-            (addOrChange && typeof addOrChange !== "function"))
-        throw new Error('add/remove/change/addOrChange handlers must be functions.');
+            (exists && typeof exists !== "function"))
+        throw new Error("onDiff()'s add/remove/change/exists handlers must be functions.");
 
-    if (add || addOrChange) {
+    if (add) {
         for (let key in newObject) {
-            if (!newObject.hasOwnProperty(key))
-                continue;
-
-            if (!oldObject.hasOwnProperty(key)) {
+            if (newObject.hasOwnProperty(key) && !oldObject.hasOwnProperty(key)) {
                 // Call add() when a value is in newObject but not in oldObject.
-                if (add) add(key, newObject[key]);
-                if (addOrChange) addOrChange(key, newObject[key]);
+                add(key, newObject[key]);
             }
         }
     }
 
-    if (remove || change || addOrChange) {
+    if (remove) {
         for (let key in oldObject) {
-            if (!oldObject.hasOwnProperty(key))
-                continue;
-
-            if (!newObject.hasOwnProperty(key)) {
+            if (oldObject.hasOwnProperty(key) && !newObject.hasOwnProperty(key)) {
                 // Call remove() when a value is in oldObject but not in newObject.
-                if (remove) remove(key, oldObject[key]);
-            } else if (oldObject[key] !== newObject[key]) {
-                // Call change() when the values in newObject and oldObject differ.
-                if (change) change(key, oldObject[key], newObject[key]);
-                if (addOrChange) addOrChange(key, newObject[key]);
+                remove(key, oldObject[key]);
             }
         }
     }
+
+    if (change) {
+        for (let key in oldObject) {
+            if (oldObject.hasOwnProperty(key) && newObject.hasOwnProperty(key)
+                    && equals(oldObject[key], newObject[key])) {
+                // Call change() when the values in newObject and oldObject differ.
+                change(key, oldObject[key], newObject[key]);
+            }
+        }
+    }
+
+    if (exists) {
+        for (let key in newObject) {
+            if (newObject.hasOwnProperty(key)) {
+                // Call exists if a value exists in newObject (i.e. same thing as forEach).
+                exists(key, newObject[key]);
+            }
+        }
+    }
+}
+
+// Recursively checks if all of the values in the two objects are equal.
+export function objectsEqual(a, b) {
+    if (!isObject(a) || !isObject(b))
+        throw new Error('objectsEqual cannont compare non-objects.');
+
+    for (let key in a) {
+        if (a.hasOwnProperty(key)) {
+            if (!b.hasOwnProperty(key))
+                return false;
+
+            if (isObject(a[key]) && isObject(b[key]) && !objectsEqual(a[key], b[key]))
+                return false;
+            else if (Array.isArray(a[key]) && Array.isArray(b[key]) && !arraysEqual(a[key], b[key]))
+                return false;
+            else if (a[key] !== b[key])
+                return false;
+        }
+    }
+
+    return true;
+}
+
+export function arraysEqual(a, b) {
+    if (!Array.isArray(a) || !Array.isArray(b))
+        throw new Error('arraysEqual() cannot compare non-arrays.');
+
+    if (a.length !== b.length)
+        return false;
+
+    for (let i = 0; i < a.length; i++) {
+        if (isObject(a[i]) && isObject(b[i]) && !objectsEqual(a[i], b[i]))
+            return false;
+        else if (Array.isArray(a[i]) && Array.isArray(b[i]) && !arraysEqual(a[i], b[i]))
+            return false;
+        else if (a[i] !== b[i])
+            return false;
+    }
+
+    return true;
+}
+
+// Recursively merge values from "target" into "object", interpolating numeric
+// values by the interpolation factor "t", which should be a number between 0
+// and 1. Also removes values not in "target" from "object".
+export function interpolateObjects(object, target, t) {
+    if (!isObject(object) || !isObject(target))
+        throw new Error('interpolateObjects() cannot interpolate non-object.');
+
+    // Copy new values from target into object.
+    for (let key in target) {
+        if (!target.hasOwnProperty(key))
+            continue;
+
+        if (isObject(target[key])) {
+            // Create sub-objects if they don't exist.
+            if (!isObject(object[key]))
+                object[key] = Array.isArray(target[key]) ? new Array(target[key].length) : {};
+
+            // Interpolate sub-objects.
+            interpolateObjects(object[key], target[key], t);
+        } else if (isNumeric(target[key]) && isNumeric(object[key]) && t !== 1) {
+            // If both of the values are numbers, interpolate the values.
+            object[key] = object[key] * (1 - t) + target[key] * t;
+            // If t === 1, just copy the new value over in the following else clause.
+        } else {
+            // Strings and other values just get copied over as is.
+            object[key] = target[key];
+        }
+    }
+
+    // Remove old values from object.
+    for (let key in object) {
+        if (!target.hasOwnProperty(key))
+            delete object[key];
+    }
+
+    return object;
+}
+
+export function isNumeric(n) {
+    return !isNaN(parseFloat(n)) && isFinite(n);
+}
+
+export function isObject(obj) {
+    return obj !== null && typeof obj === 'object';
 }

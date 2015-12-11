@@ -10,6 +10,7 @@ startServer();
     // setTimeout/setInterval are throttled to 1 call per second if the page
     // isn't focused.
     let workerCode = "onmessage = function() { setTimeout(function () { postMessage('tock'); }, 1000 / 60); };";
+    //let workerCode = "onmessage = function() { setTimeout(function () { postMessage('tock'); }, 1000 / 10); };";
     let workerURL = window.URL.createObjectURL(new Blob([workerCode]));
     let worker = new Worker(workerURL);
 
@@ -24,12 +25,18 @@ util.animationLoop(handlers.update, requestFrameWithWorker);
 function startServer() {
     let serverPeer = new Peer('server', {host: 'localhost', port: 8000, path: '/peerjs'});
 
+    let disconnected = false;
     function onDisconnect() {
-        if (serverPeer && !serverPeer.destroyed)
+        if (serverPeer && !disconnected) {
+            // Prevents recusion due to peer.destroy() calling
+            // connection.on('close'), which calls onDisconnect().
+            disconnected = true;
+
             serverPeer.destroy();
+        }
 
         // Attempt to reconnect to signalling server after 1 second.
-        //setTimeout(startServer, 1000);
+        setTimeout(startServer, 1000);
     };
 
     // Log connection status and errors.
@@ -59,17 +66,10 @@ function startServer() {
         connection.on('open', () => {
             console.log('Connection to client ready:', connection);
 
-            //let playerId = connection.label; // Is it better to use the label instead of the peer id?
             let playerId = connection.peer;
 
-            // Attach an id to the state so that the player can throw away
-            // old/delayed states.
-            let stateId = 0;
-            let sendState = state => {
-                connection.send({ id: stateId, state });
-                stateId += 1;
-            };
-            handlers.playerConnected(playerId, sendState);
+            let sendStateFunction = state => connection.send(state);
+            handlers.playerConnected(playerId, sendStateFunction);
 
             connection.on('close', () => {
                 console.log('Client disconnected:', connection.peer);
@@ -80,15 +80,8 @@ function startServer() {
                 handlers.playerDisconnected(playerId);
             });
 
-            let lastInputId = 0;
             connection.on('data', data => {
-                // Ignore old input messages.
-                if (data.id < lastInputId)
-                    return;
-
-                handlers.receivedInput(playerId, data.inputState);
-
-                lastInputId = data.id;
+                handlers.receivedInput(playerId, data);
             });
         });
 

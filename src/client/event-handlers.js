@@ -4,11 +4,10 @@ import {generateMaze} from "common/maze";
 import * as util from "common/util";
 import {updateState} from "common/update-state";
 
-let textureLoader = new three.TextureLoader();
-
 let renderer, camera, scene, cameraContainer;
-let previousState, state, targetState;
-let playerId, sendInput, isConnected = false;
+let textureLoader = new three.TextureLoader();
+let playerId, sendInput, isConnected;
+let previousState, state, inputState, inputQueue, previousFrameTimestamp, lastStateTimestamp;
 let playerMeshes = {};
 let maze;
 
@@ -43,65 +42,116 @@ export default {
         cameraContainer.position.set(0, 0, 0);
         cameraContainer.rotateY(-Math.PI / 2);
         scene.add(cameraContainer);
+
+        isConnected = false;
+        lastStateTimestamp = 0;
+        previousFrameTimestamp = window.performance.now();
     },
-    connected(clientId, sendInputState, initialState) {
+    connected(clientId, sendInputStateFunction, initialState) {
         isConnected = true;
 
         playerId = clientId;
-        sendInput = sendInputState;
-        previousState = { players: {} };
-        state = targetState = initialState;
 
+        inputQueue = [];
+        sendInput = (inputStateUpdate, updateTimestamp = true) => {
+            inputStateUpdate.timestamp = updateTimestamp ? window.performance.now() : inputState.timestamp;
+            sendInputStateFunction(inputStateUpdate);
+
+            util.mergeDeep(inputState, inputStateUpdate);
+
+            // Add to input queue to use client side prediction/server state reconcilation.
+            /*inputQueue.push(util.cloneObject(inputState));
+
+            // Make sure queue doesn't grow infinitely.
+            if (inputQueue.length > 1000)
+                inputQueue.shift();*/
+        };
+
+        state = initialState;
+        inputState = state.players[playerId].inputState;
+
+        // Now that we have the random seed contained in the state from the
+        // server, we can generate the maze.
         initMaze();
     },
     disconnected() {
         isConnected = false;
     },
     receivedState(newState) {
+        // Ignore old/out of order state updates.
+        if (newState.timestamp < lastStateTimestamp)
+            return;
+        else
+            lastStateTimestamp = newState.timestamp;
+
+        // TODO: Get client side prediction working.
+        // Reconcile state received from server with user input that the server
+        // hasn't received yet. lastInputTimestamp is the timestamp of the last
+        // input update that the server received before sending this update.
+        /*let lastInputTimestamp = newState.players[playerId].inputState.timestamp;
+        let input = inputQueue.shift(), nextInput;
+        let totalDelta = 0;
+        while (nextInput = inputQueue.shift()) {
+            // Throw away inputs that the server already received.
+            if (input.timestamp < lastInputTimestamp) {
+                input = nextInput;
+                continue;
+            }
+
+            // Update the server's state with the input the server hasn't seen yet.
+            newState.players[playerId].inputState = input;
+            // The delta is the amount of time between the current input and
+            // when the next input is received.
+            let delta = (nextInput.timestamp - input.timestamp) / 1000;
+            totalDelta += delta;
+            updateState({ state: newState, maze }, delta);
+
+            input = nextInput;
+        }*/
+
+        // Update the state one last time to bring it up to the previous frame
+        // time with the latest inputState.
+        /*newState.players[playerId].inputState = inputState;
+        let delta = (previousFrameTimestamp - inputState.timestamp) / 1000;
+        updateState({ state: newState, maze }, delta);*/
+
         // Do not overwrite the client's input state. The server is the
         // authority on the state of the game, except for each player's input
         // state.
-        newState.players[playerId].inputState = state.players[playerId].inputState;
-        targetState = newState;
+        newState.players[playerId].inputState = inputState;
+        state = newState;
     },
-    keyPressedOrReleased(keyCode, key, isDown) {
+    keyPressedOrReleased(keyCode, key, isPressed) {
         if (!isConnected)
             return;
 
         let keyUpdate = undefined;
 
         if (key === 'w')
-            keyUpdate = { forward: isDown };
+            keyUpdate = { forward: isPressed };
         else if (key === 's')
-            keyUpdate = { backward: isDown };
+            keyUpdate = { backward: isPressed };
         else if (key === 'a')
-            keyUpdate = { left: isDown };
+            keyUpdate = { left: isPressed };
         else if (key === 'd')
-            keyUpdate = { right: isDown };
-        else if (key === ' ' && isDown)
-            keyUpdate = { zombie: !state.players[playerId].inputState.zombie };
+            keyUpdate = { right: isPressed };
+        else if (key === ' ' && isPressed)
+            keyUpdate = { wantsToTransform: true };
 
         // Send key state update to server if one of the movement keys were
         // pressed or released.
-        if (keyUpdate !== undefined) {
+        if (keyUpdate !== undefined)
             sendInput(keyUpdate);
-
-            util.merge(state.players[playerId].inputState, keyUpdate);
-        }
     },
     mouseMoved(movementX, movementY) {
         if (!isConnected)
             return;
 
-        let inputState = state.players[playerId].inputState;
-        inputState.mouse.x += movementX;
-        inputState.mouse.y += movementY;
-
         // Send the new mouse position to the server.
         sendInput({
             mouse: {
-                x: inputState.mouse.x,
-                y: inputState.mouse.y
+                x: inputState.mouse.x + movementX,
+                y: inputState.mouse.y + movementY
             }
         });
     },
@@ -109,105 +159,39 @@ export default {
         if (!isConnected)
             return;
 
-        // TODO: Base delta and now on the server's simulation time instead of the client's?
-        updateState({ state: targetState, maze }, delta, now);
+        //updateState({ state, maze }, delta);
 
-        interpolateObjects(state, targetState, 0.3);
-
-        // TODO: Handle error if playerId is not in state for some reason?
         let player = state.players[playerId];
 
+        if (player === undefined) {
+            // Should never happen, but just in case.
+            alert('You have been removed from the game');
+            isConnected = false;
+        }
+
+        if (previousState && player.isZombie !== previousState.players[playerId].isZombie) {
+            // The player has transformed.
+            inputState.wantsToTransform = false;
+        }
+
         // Resend the input state every frame just in case packets get dropped.
-        sendInput(player.inputState);
+        sendInput(inputState, false);
 
-        // Rotate the camera based on mouse position.
-        // Rotate camera horizontally.
-        let horizontalAngle = -player.inputState.mouse.x * 0.002
-        cameraContainer.rotation.y = horizontalAngle;
+        updateCamera(player);
 
-        // Rotate camera vertically.
-        // Make it so that vertical rotation cannot loop.
-        let maxMouseY = Math.PI / 2 / 0.002;
-        player.inputState.mouse.y = Math.max(-maxMouseY, Math.min(maxMouseY, player.inputState.mouse.y));
-        let verticalAngle = -player.inputState.mouse.y * 0.002;
-        camera.rotation.x = verticalAngle;
-
-        // Move camera to player's position.
-        let playerPosition = new three.Vector3(...player.position);
-        cameraContainer.position.copy(playerPosition);
-
-        // Narrow FOV if player is a zombie.
-        camera.fov = player.inputState.zombie ? 45 : 65;
-        camera.updateProjectionMatrix();
-
-        // Update other player meshes.
-        util.onDiff(previousState.players, state.players, {
-            add(playerId, playerState) {
-                let playerGeometry = new three.SphereGeometry(0.2, 16, 12);
-                let playerMaterial = new three.MeshPhongMaterial({ color: playerState.color });
-                let playerMesh = new three.Mesh(playerGeometry, playerMaterial);
-                scene.add(playerMesh);
-
-                playerMeshes[playerId] = playerMesh;
-            },
-            remove(playerId, playerState) {
-                scene.remove(playerMeshes[playerId]);
-                delete playerMeshes[playerId];
-            },
-            addOrChange(playerId, playerState) {
-                let playerMesh = playerMeshes[playerId];
-                let playerPosition = new three.Vector3(...playerState.position);
-                playerMesh.position.copy(playerPosition);
-            }
-        });
+        updateOtherPlayers();
 
         renderer.render(scene, camera);
-        previousState = state;
+
+        previousState = util.cloneObject(state);
+
+        previousFrameTimestamp = window.performance.now();
     }
 };
 
-function interpolateObjects(fromObject, toObject, t) {
-    for (let key in toObject) {
-        let fromValue = fromObject[key], toValue = toObject[key];
-        if (isNumeric(fromValue) && isNumeric(toValue)) {
-            // Interpolate values if they are both numbers.
-            fromObject[key] = fromValue + (toValue - fromValue) * t;
-        } else if (Array.isArray(fromValue) && Array.isArray(toValue)) {
-            interpolateArrays(fromValue, toValue, t);
-        } else if (isObject(fromValue) && isObject(toValue)) {
-            interpolateObjects(fromValue, toValue, t);
-        } else {
-            fromObject[key] = toValue;
-        }
-    }
-}
-
-function interpolateArrays(fromArray, toArray, t) {
-    for (let i = 0; i < toArray.length; i++) {
-        let fromValue = fromArray[i], toValue = toArray[i];
-        if (isNumeric(fromValue) && isNumeric(toValue)) {
-            // Interpolate values if they are both numbers.
-            fromArray[i] = fromValue + (toValue - fromValue) * t;
-        } else if (Array.isArray(fromValue) && Array.isArray(toValue)) {
-            interpolateArrays(fromValue, toValue, t);
-        } else if (isObject(fromValue) && isObject(toValue)) {
-            interpolateObjects(fromValue, toValue, t);
-        } else {
-            fromArray[i] = toArray[i];
-        }
-    }
-}
-
-function isNumeric(n) {
-    return !isNaN(parseFloat(n)) && isFinite(n);
-}
-
-function isObject(obj) {
-    return obj !== null && typeof obj === 'object';
-}
-
 function initMaze() {
-    const width = 10, height = 10;
+    //const width = 10, height = 10;
+    const width = 5, height = 5;
     const centerX = width / 2 - 0.5, centerY = height / 2 - 0.5;
     const wallWidth = 0.05;
 
@@ -260,4 +244,49 @@ function initMaze() {
     scene.add(mazeObject);
     scene.add(ground);
     scene.add(light);
+}
+
+function updateCamera(player) {
+    // Rotate the camera based on mouse position.
+    // Rotate camera horizontally.
+    let horizontalAngle = -inputState.mouse.x * 0.002
+        cameraContainer.rotation.y = horizontalAngle;
+
+    // Rotate camera vertically.
+    // Make it so that vertical rotation cannot loop.
+    let maxMouseY = Math.PI / 2 / 0.002;
+    inputState.mouse.y = Math.max(-maxMouseY, Math.min(maxMouseY, inputState.mouse.y));
+    let verticalAngle = -inputState.mouse.y * 0.002;
+    camera.rotation.x = verticalAngle;
+
+    // Move camera to player's position.
+    let playerPosition = new three.Vector3(...player.position);
+    cameraContainer.position.copy(playerPosition);
+
+    // Narrow FOV if player is a zombie.
+    camera.fov = player.isZombie ? 45 : 65;
+    camera.updateProjectionMatrix();
+}
+
+function updateOtherPlayers() {
+    // Update other player meshes.
+    util.onDiff(previousState ? previousState.players : {}, state.players, {
+        add(playerId, playerState) {
+            let playerGeometry = new three.SphereGeometry(0.2, 16, 12);
+            let playerMaterial = new three.MeshPhongMaterial({ color: playerState.color });
+            let playerMesh = new three.Mesh(playerGeometry, playerMaterial);
+            scene.add(playerMesh);
+
+            playerMeshes[playerId] = playerMesh;
+        },
+        remove(playerId, playerState) {
+            scene.remove(playerMeshes[playerId]);
+            delete playerMeshes[playerId];
+        },
+        exists(playerId, playerState) {
+            let playerMesh = playerMeshes[playerId];
+            let playerPosition = new three.Vector3(...playerState.position);
+            playerMesh.position.copy(playerPosition);
+        }
+    });
 }

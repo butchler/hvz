@@ -1,13 +1,55 @@
 import {Vector3} from "three";
 
+export function initState() {
+    return {
+        randomSeed: Math.floor(Math.random() * 1000000),
+        players: {},
+        secondsLeft: 60 * 5
+    };
+}
+
+const playerColors = ['red', 'blue', 'green', 'yellow', 'purple', 'pink', 'black', 'white', 'brown', 'orange'];
+let randomInt = (max) => Math.floor(Math.random()*max);
+export function addPlayer({ state, mazeWidth, mazeHeight }, playerId) {
+    state.players[playerId] = {
+        position: [randomInt(mazeWidth), 0, randomInt(mazeHeight)],
+        color: playerColors[randomInt(playerColors.length)],
+        isZombie: false,
+        inputState: {
+            mouse: {
+                x: 0,
+                y: 0
+            },
+            forward: false,
+            backward: false,
+            right: false,
+            left: false,
+            wantsToTransform: false
+        }
+    };
+}
+
 export function updateState({ state, maze }, delta, now) {
     for (let playerId in state.players) {
-        updatePlayer({ player: state.players[playerId], maze }, delta, now);
+        let player = state.players[playerId];
+
+        updatePlayer({ player, maze }, delta, now);
+
+        if (player.isZombie)
+            eatOtherPlayers(state.players, playerId);
     }
 }
 
 function updatePlayer({ player, maze }, delta, now) {
-    const speed = player.inputState.zombie ? 5 : 2;
+    if (player.inputState.wantsToTransform) {
+        player.isZombie = !player.isZombie;
+    }
+
+    movePlayer({ player, maze }, delta, now);
+}
+
+function movePlayer({ player, maze }, delta, now) {
+    const speed = player.isZombie ? 5 : 2;
 
     let position = new Vector3(...player.position);
     let up = new Vector3(0, 1, 0);
@@ -49,22 +91,20 @@ function updatePlayer({ player, maze }, delta, now) {
     player.position = [position.x, position.y, position.z];
 }
 
-const playerColors = ['red', 'blue', 'green', 'yellow', 'purple', 'pink', 'black', 'white', 'brown', 'orange'];
-let randomInt = (max) => Math.floor(Math.random()*max);
-export function addPlayer({ state, mazeWidth, mazeHeight }, playerId) {
-    state.players[playerId] = {
-        position: [randomInt(mazeWidth), 0, randomInt(mazeHeight)],
-        color: playerColors[randomInt(playerColors.length)],
-        inputState: {
-            mouse: {
-                x: 0,
-                y: 0
-            },
-            forward: false,
-            backward: false,
-            right: false,
-            left: false,
-            zombie: false
-        }
-    };
+function eatOtherPlayers(players, playerId) {
+    let player = players[playerId];
+    let playerPosition = new Vector3(...player.position);
+
+    // If the player is a zombie, check if they have eatend any other players.
+    for (let otherPlayerId in players) {
+        if (otherPlayerId === playerId)
+            continue;
+
+        let otherPlayer = players[otherPlayerId];
+        let otherPlayerPosition = new Vector3(...otherPlayer.position);
+
+        // Turn other players into zombies if they are too close.
+        if (playerPosition.distanceTo(otherPlayerPosition) <= 0.2)
+            otherPlayer.isZombie = true;
+    }
 }

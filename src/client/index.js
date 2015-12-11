@@ -17,15 +17,21 @@ util.animationLoop(handlers.render);
 function connectToGameServer() {
     let clientPeer = new Peer({host: 'localhost', port: 8000, path: '/peerjs'});
 
+    let disconnected = false;
     function onDisconnect(connection) {
         handlers.disconnected();
 
         // Destroy peer.
-        if (clientPeer && !clientPeer.destroyed)
+        if (clientPeer && !disconnected) {
+            // Prevents recusion due to peer.destroy() calling
+            // connection.on('close'), which calls onDisconnect().
+            disconnected = true;
+
             clientPeer.destroy();
+        }
 
         // Attempt to reconnect after 1 second.
-        //setTimeout(connectToGameServer, 1000);
+        setTimeout(connectToGameServer, 1000);
     };
 
     clientPeer.on('open', (clientId) => {
@@ -34,7 +40,7 @@ function connectToGameServer() {
 
         // Try to connect to server peer.
         let connection = clientPeer.connect('server', {reliable: false});
-        let lastStateId = 0;
+        let initialState = true;
 
         connection.on('open', () => {
             // Successfully connected to server peer.
@@ -43,28 +49,14 @@ function connectToGameServer() {
             connection.on('data', (data) => {
                 // TODO: Validate data received from server.
 
-                // Make sure that state updates are received in order by
-                // throwing away delayed updates.
-                if (data.id < lastStateId)
-                    return;
-
-                if (lastStateId === 0) {
+                if (initialState) {
                     // Call the connected() event handler when the initial state is received.
-                    //
-                    // Add an counter to the message so the server knows the
-                    // order that messages were sent and can ignore old messages.
-                    let inputStateId = 0;
-                    let sendInputState = (inputState) => {
-                        connection.send({ id: inputStateId, inputState });
-                        inputStateId += 1;
-                    };
-
-                    handlers.connected(clientId, sendInputState, data.state);
+                    let sendInputStateFunction = inputState => connection.send(inputState);
+                    handlers.connected(clientId, sendInputStateFunction, data);
+                    initialState = false;
                 } else {
-                    handlers.receivedState(data.state);
+                    handlers.receivedState(data);
                 }
-
-                lastStateId = data.id;
             });
         });
 
@@ -106,6 +98,7 @@ function addInputEvents() {
     // Use pointerlock to move camera.
     let requestPointerLock = document.body.requestPointerLock || document.body.mozRequestPointerLock;
     document.addEventListener('click', event => requestPointerLock.call(document.body));
+    // TODO: Handle pointerlock events.
     /*document.addEventListener('pointerlockchange', (event) => {});
       document.addEventListener('pointerlockerror', (event) => {});*/
 
