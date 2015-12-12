@@ -2,7 +2,7 @@ import Peer from "peerjs";
 import handlers from "client/event-handlers";
 
 export function connectToMatchmakingServer() {
-    let socket = new WebSocket('ws://localhost/ws');
+    let socket = new WebSocket('ws://localhost:8000/ws');
 
     socket.onopen = event => {
         let sendMessageFunction = message => {
@@ -20,7 +20,7 @@ export function connectToMatchmakingServer() {
 }
 
 export function connectToGameServer(gameServerId, playerName) {
-    let clientPeer = new Peer({host: 'localhost', port: 80, path: '/peerjs'});
+    let clientPeer = new Peer({host: 'localhost', port: 8000, path: '/peerjs'});
 
     let disconnected = false;
     function onDisconnect(connection) {

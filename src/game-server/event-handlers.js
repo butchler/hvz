@@ -3,8 +3,7 @@ import {generateMaze} from "common/maze";
 import random from "pcg-random";
 import {Vector3} from "three";
 import {initState, updateState, addPlayer} from "common/update-state";
-
-const mazeWidth = 5, mazeHeight = 5;
+import * as config from "common/config";
 
 let playerConnections = {};
 let state, maze;
@@ -16,10 +15,7 @@ export default {
     init() {
         state = initState();
 
-        let rng = new random(state.randomSeed);
-        let rngFunction = () => rng.number();
-
-        maze = generateMaze(mazeWidth, mazeHeight, rngFunction);
+        maze = generateMaze(config.mazeWidth, config.mazeHeight, state.randomSeed);
 
         connectedToMatchmaking = false;
         connectedToSignalling = false;
@@ -33,7 +29,7 @@ export default {
 
         let isZombie = playerName === creatorName;
 
-        addPlayer({ state, mazeWidth, mazeHeight }, playerId, isZombie);
+        addPlayer({ state, maze }, playerId, isZombie);
     },
     playerDisconnected(playerId) {
         delete state.players[playerId];

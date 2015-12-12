@@ -2,17 +2,24 @@ import {Vector3} from "three";
 
 export function initState() {
     return {
-        randomSeed: Math.floor(Math.random() * 1000000),
+        randomSeed: Math.floor(Math.random() * 0xffffffff),
         players: {},
+        // TODO: End game after a certain time limit.
         secondsLeft: 60 * 5
     };
 }
 
 const playerColors = ['red', 'blue', 'green', 'yellow', 'purple', 'pink', 'black', 'white', 'brown', 'orange'];
 let randomInt = (max) => Math.floor(Math.random()*max);
-export function addPlayer({ state, mazeWidth, mazeHeight }, playerId, isZombie = false) {
+export function addPlayer({ state, maze }, playerId, isZombie = false) {
+    // Find an unoccupied position in the maze.
+    let x, y;
+    do {
+        x = randomInt(maze.width), y = randomInt(maze.height);
+    } while (maze.grid[y][x] === true);
+
     state.players[playerId] = {
-        position: [randomInt(mazeWidth), 0, randomInt(mazeHeight)],
+        position: [x, 0, y],
         color: playerColors[randomInt(playerColors.length)],
         isZombie,
         inputState: {
@@ -61,10 +68,6 @@ function movePlayer({ player, maze }, delta) {
     forward.applyAxisAngle(up, rotation);
     right.applyAxisAngle(up, rotation);
 
-    let row = Math.round(position.z);
-    let column = Math.round(position.x);
-    let walls = maze.wallGrid[row] && maze.wallGrid[row][column];
-
     // Move forward and backward.
     if (player.inputState.forward)
         position.add(forward);
@@ -76,17 +79,20 @@ function movePlayer({ player, maze }, delta) {
     else if (player.inputState.left)
         position.sub(right);
 
+    // Check for collisions with walls.
     const offset = 0.1;
-    if (walls !== undefined) {
-        if (walls.north)
-            position.z = Math.min(position.z, row + 0.5 - offset);
-        if (walls.south)
-            position.z = Math.max(position.z, row - 0.5 + offset);
-        if (walls.east)
-            position.x = Math.min(position.x, column + 0.5 - offset);
-        if (walls.west)
-            position.x = Math.max(position.x, column - 0.5 + offset);
-    }
+    let row = Math.round(position.z);
+    let column = Math.round(position.x);
+
+    // North wall
+    if (maze.grid[row + 1] && maze.grid[row + 1][column])
+        position.z = Math.min(position.z, row + 0.5 - offset);
+    if (maze.grid[row - 1] && maze.grid[row - 1][column])
+        position.z = Math.max(position.z, row - 0.5 + offset);
+    if (maze.grid[row] && maze.grid[row][column + 1])
+        position.x = Math.min(position.x, column + 0.5 - offset);
+    if (maze.grid[row] && maze.grid[row][column - 1])
+        position.x = Math.max(position.x, column - 0.5 + offset);
 
     player.position = [position.x, position.y, position.z];
 }

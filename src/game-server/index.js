@@ -10,7 +10,8 @@ connectToMatchmakingServer();
     // Dirty hack using a web worker to get around the fact that
     // setTimeout/setInterval are throttled to 1 call per second if the page
     // isn't focused.
-    let workerCode = "onmessage = function() { setTimeout(function () { postMessage('tock'); }, 1000 / 30); };";
+    //let workerCode = "onmessage = function() { setTimeout(function () { postMessage('tock'); }, 1000 / 30); };";
+    let workerCode = "onmessage = function() { setTimeout(function () { postMessage('tock'); }, 1000 / 60); };";
     let workerURL = window.URL.createObjectURL(new Blob([workerCode]));
     let worker = new Worker(workerURL);
 
@@ -23,11 +24,10 @@ connectToMatchmakingServer();
 util.animationLoop(handlers.update, requestFrameWithWorker);
 
 function startServer() {
-    //let serverPeer = new Peer('server', {host: 'localhost', port: 80, path: '/peerjs'});
-
     let [serverId, creatorName] = window.location.hash.substr(1).split(',');
-    if (!serverId)
-        throw new Error('No server ID given in URL hash.');
+    if (!serverId) throw new Error('No server ID given in URL hash.');
+    //let serverId = 'server', creatorName = 'creator';
+
     let serverPeer = new Peer(serverId, {host: 'localhost', port: 8000, path: '/peerjs'});
 
     let disconnected = false;

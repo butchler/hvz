@@ -12,20 +12,37 @@ export default function startMatchmakingServer(options) {
         let playerName = null;
 
         socket.on('message', messageString => {
-            let message = JSON.parse(messageString);
+            let message = null;
+            try {
+                message = JSON.parse(messageString);
+            } catch (error) {
+                console.error(`Could not parse message "${messageString}": ${error}`);
+                return;
+            }
+
+            if (message === null) {
+                console.error('Message must be a JSON object:', messageString);
+                return;
+            }
 
             if (message.type === 'request-name') {
                 // Step 1. User chooses a name to identify themselves.
                 if (playerName !== null) return sendError('Cannot change name.');
 
+                // Check if the name is valid.
+                if (typeof message.name !== 'string' || message.name.length < 1) {
+                    socket.send(JSON.stringify({
+                        type: 'name-invalid',
+                        name: message.name
+                    }));
                 // Check if the name is already taken.
-                if (message.name in players) {
+                } else if (message.name in players) {
                     socket.send(JSON.stringify({
                         type: 'name-taken',
                         name: message.name
                     }));
+                // Add player with requested name.
                 } else {
-                    // Add player with requested name.
                     playerName = message.name;
                     players[message.name] = {
                         socket,
@@ -95,6 +112,11 @@ export default function startMatchmakingServer(options) {
             } else if (message.type === 'game-server-ready') {
                 // Step 5. The game server also connects to the websocket
                 // server and to tell the players that it's ready.
+                if (gameServers[message.gameServerId] === undefined) {
+                    console.error(`Game server doesn't exist: ${message.gameServerId}.`);
+                    return;
+                }
+
                 let lobby = lobbies[gameServers[message.gameServerId].lobby];
 
                 // Do nothing if this game was already started and the lobby removed.
@@ -120,8 +142,15 @@ export default function startMatchmakingServer(options) {
             } else if (message.type === 'game-finished') {
                 // Step 6. Kill the game server's process when the game server
                 // tells us the game is over.
-                gameServers[message.gameServerId].process.kill();
+                if (gameServers[message.gameServerId] === undefined) {
+                    console.error(`Game server doesn't exist: ${message.gameServerId}.`);
+                    return;
+                }
+
+                //gameServers[message.gameServerId].process.kill();
                 delete gameServers[message.gameServerId];
+
+                console.log(`Game server ${message.gameServerId} ended.`);
 
                 // TODO: Also kill processes after 30 minutes or so as a backup.
             } else {
@@ -215,11 +244,13 @@ function startNewGameServer(lobby) {
                 // knows who the initial zombie should be.
                 'http://localhost:8000/game-server/index.html#' + gameServerId + ',' + lobby
     ]);*/
-    let gameServerProcess = spawn('chromium', [
+    /*let gameServerProcess = spawn('chromium', [
                 '--user-data-dir=/tmp/headless-chromium-' + gameServerId,
                 '--no-first-run',
                 'http://localhost:8000/game-server/index.html#' + gameServerId + ',' + lobby
     ]);
 
-    return [gameServerId, gameServerProcess];
+    return [gameServerId, gameServerProcess];*/
+
+    return ['server', null];
 }

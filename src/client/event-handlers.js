@@ -1,9 +1,10 @@
 import * as three from "three";
 import random from "pcg-random";
 import * as util from "common/util";
-import {generateMaze} from "common/maze";
+import {generateMaze, printMaze} from "common/maze";
 import {updatePlayer} from "common/update-state";
 import {connectToMatchmakingServer, connectToGameServer} from "client/networking";
+import * as config from "common/config";
 
 let renderer, camera, scene, cameraContainer;
 let textureLoader = new three.TextureLoader();
@@ -21,7 +22,8 @@ export default {
     init() {
         // Init renderer and camera.
         renderer = new three.WebGLRenderer({ antialias: true });
-        renderer.setClearColor('black', 1.0);
+        //renderer.setClearColor('black', 1.0);
+        renderer.setClearColor(0x33aaee, 1.0);
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.shadowMap.enabled = true;
         document.getElementById('canvas-container').appendChild(renderer.domElement);
@@ -38,8 +40,10 @@ export default {
         // Init scene.
         scene = new three.Scene();
 
-        scene.add(new three.AmbientLight(0x404040));
-        scene.fog = new three.Fog(0x000000, 2, 5);
+        //scene.add(new three.AmbientLight(0x404040));
+        scene.add(new three.AmbientLight(0xaaaaaa));
+        //scene.fog = new three.Fog(0x000000, 2, 5);
+        scene.fog = new three.Fog(0x005599, 2, 10);
 
         // Init camera container. Used to make rotating the camera easier.
         cameraContainer = new three.Object3D();
@@ -57,6 +61,9 @@ export default {
         connectToMatchmakingServer();
         isConnectedToMatchmaking = false;
         playerName = currentLobby = null;
+
+        /*connectToGameServer('server', null);
+        showSection('canvas-container');*/
     },
     connected(clientId, sendInputStateFunction, initialState) {
         isConnected = true;
@@ -109,7 +116,7 @@ export default {
         // server's state being slightly off from the client's state.
         let oldPosition = new three.Vector3(...state.players[playerId].position);
         let newPosition = new three.Vector3(...newState.players[playerId].position);
-        if (oldPosition.distanceTo(newPosition) < 1)
+        if (oldPosition.distanceTo(newPosition) < 0.5)
             newState.players[playerId].position = state.players[playerId].position;
 
         state = newState;
@@ -179,7 +186,9 @@ export default {
     matchmakingMessageReceived(message) {
         if (message.type === 'name-taken')
             document.getElementById('name-status').innerText = 'That name has already been taken.';
-        else if (message.type === 'name-accepted')
+        else if (message.type === 'name-invalid') {
+            document.getElementById('name-status').innerText = 'Invalid name.';
+        } else if (message.type === 'name-accepted')
             showSection('lobby-list');
         else if (message.type === 'lobbies-updated') {
             if (currentLobby !== null && !(currentLobby in message.lobbies)) {
@@ -294,38 +303,31 @@ function showSection(id) {
 }
 
 function initMaze() {
-    //const width = 10, height = 10;
-    const width = 5, height = 5;
-    const centerX = width / 2 - 0.5, centerY = height / 2 - 0.5;
-    const wallWidth = 0.05;
+    const centerX = config.mazeWidth / 2 - 0.5, centerY = config.mazeHeight / 2 - 0.5;
 
-    let rng = new random(state.randomSeed);
-    let rngFunction = () => rng.number();
+    maze = generateMaze(config.mazeWidth, config.mazeHeight, state.randomSeed);
 
-    maze = generateMaze(width, height, rngFunction);
+    printMaze(maze);
 
     // Build maze geometry.
     let mazeGeometry = new three.Geometry();
-    let wallGeometry = new three.BoxGeometry(1, 1, wallWidth);
+    let wallGeometry = new three.BoxGeometry(1, 1, 1);
     let matrix = new three.Matrix4();
-    for (let i = 0; i < maze.wallList.length; i++) {
-        let wall = maze.wallList[i];
+    for (let y = 0; y < maze.height; y++) {
+        for (let x = 0; x < maze.width; x++) {
+            let hasWall = maze.grid[y][x] === true;
 
-        if (wall.direction === 'vertical') {
-            // Place vertical walls at left side of cell.
-            matrix.makeRotationY(Math.PI / 2);
-            matrix.setPosition(new three.Vector3(wall.x - 0.5, 0, wall.y));
-        } else {
-            // Place horizontal walls at bottom of cell.
-            matrix.makeRotationY(0);
-            matrix.setPosition(new three.Vector3(wall.x, 0, wall.y - 0.5));
+            if (hasWall) {
+                matrix.setPosition(new three.Vector3(x, 0, y));
+
+                mazeGeometry.merge(wallGeometry, matrix);
+            }
         }
-
-        mazeGeometry.merge(wallGeometry, matrix);
     }
 
     // Add maze object.
-    let mazeMaterial = new three.MeshPhongMaterial({ map: textureLoader.load('images/concrete-red.jpg') });
+    //let mazeMaterial = new three.MeshPhongMaterial({ map: textureLoader.load('images/concrete-red.jpg') });
+    let mazeMaterial = new three.MeshPhongMaterial({ color: 'white' });
     let mazeObject = new three.Mesh(mazeGeometry, mazeMaterial);
 
     // Add ground plane.
@@ -333,16 +335,18 @@ function initMaze() {
     groundTexture.wrapS = groundTexture.wrapT = three.RepeatWrapping;
     groundTexture.repeat.set(4, 4);
     let ground = new three.Mesh(
-            new three.PlaneGeometry(width, height),
+            new three.PlaneGeometry(config.mazeWidth, config.mazeHeight),
             new three.MeshPhongMaterial({
-                map: groundTexture,
-                color: 0x444444
+                /*map: groundTexture,
+                color: 0x444444*/
+                color: 0x666666
             }));
     ground.rotateX(-Math.PI / 2); // Make ground lay flat on XZ plane.
     ground.position.set(centerX, -0.5, centerY);
 
     // Center a light above the maze.
-    let light = new three.PointLight(0xffffff);
+    //let light = new three.PointLight(0xffffff);
+    let light = new three.PointLight(0x888888);
     light.position.set(centerX, 20, centerY);
 
     scene.add(mazeObject);
@@ -376,7 +380,8 @@ function updateOtherPlayers() {
     // Update other player meshes.
     util.onDiff(previousState ? previousState.players : {}, state.players, {
         add(playerId, playerState) {
-            let playerGeometry = new three.SphereGeometry(0.2, 16, 12);
+            //let playerGeometry = new three.SphereGeometry(0.2, 16, 12);
+            let playerGeometry = new three.SphereGeometry(0.1, 16, 12);
             let playerMaterial = new three.MeshPhongMaterial({ color: playerState.color });
             let playerMesh = new three.Mesh(playerGeometry, playerMaterial);
             scene.add(playerMesh);
