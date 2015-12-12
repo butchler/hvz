@@ -24,3 +24,18 @@ ul {
 .hidden {
     display: none;
 }
+
+.overlay {
+    position: absolute;
+    top: 1em;
+    z-index: 100;
+    cursor: default;
+
+    background-color: transparent;
+    color: white;
+    opacity: 0.8;
+
+    font-size: 200%;
+    text-align: center;
+    width: 100%;
+}

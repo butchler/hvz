@@ -120,6 +120,11 @@ export default {
             newState.players[playerId].position = state.players[playerId].position;
 
         state = newState;
+
+        if (state.players[playerId].isZombie)
+            document.getElementById('text-overlay').innerText = 'You are a zombie';
+        else
+            document.getElementById('text-overlay').innerText = 'You are a human';
     },
     keyPressedOrReleased(keyCode, key, isPressed) {
         if (!isConnected)
