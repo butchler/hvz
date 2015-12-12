@@ -10,11 +10,11 @@ export function initState() {
 
 const playerColors = ['red', 'blue', 'green', 'yellow', 'purple', 'pink', 'black', 'white', 'brown', 'orange'];
 let randomInt = (max) => Math.floor(Math.random()*max);
-export function addPlayer({ state, mazeWidth, mazeHeight }, playerId) {
+export function addPlayer({ state, mazeWidth, mazeHeight }, playerId, isZombie = false) {
     state.players[playerId] = {
         position: [randomInt(mazeWidth), 0, randomInt(mazeHeight)],
         color: playerColors[randomInt(playerColors.length)],
-        isZombie: false,
+        isZombie,
         inputState: {
             mouse: {
                 x: 0,

@@ -31,7 +31,36 @@ var server = new WebpackDevServer(compiler, {
     publicPath: '/'
 });
 
-server.listen(8000);
+server.listen(8080);
 
 // Add PeerServer
-server.app.use('/peerjs', peer.ExpressPeerServer(server.listeningApp, {debug: true}));
+//server.app.use('/peerjs', peer.ExpressPeerServer(server.listeningApp, {debug: true}));
+
+// Automatically recomple and restart web/matchmaking server.
+/*var chokidar = require("chokidar");
+
+var files = {
+    'src/web-server.js': 'dist/web-server.js',
+    'src/matchmaking-server.js': 'dist/matchmaking-server.js'
+};
+
+chokidar.watch(filenames, {
+    persistent: true,
+    ignoreInitial: true
+}).on("all", function (type, files.keys()) {
+    if (type === "add" || type === "change") {
+        util.log(type + " " + filename);
+
+        try {
+            babel.transformFile(filename, function (error, result) {
+                if (error) {
+                    console.error('Compile error:', error);
+                } else {
+                    fs.writeFileSync(files[filename], result.code);
+                }
+            });
+        } catch (err) {
+            console.error(err.stack);
+        }
+    }
+});*/

@@ -4,6 +4,7 @@ import handlers from "game-server/event-handlers";
 
 handlers.init();
 startServer();
+connectToMatchmakingServer();
 
 {
     // Dirty hack using a web worker to get around the fact that
@@ -22,7 +23,12 @@ startServer();
 util.animationLoop(handlers.update, requestFrameWithWorker);
 
 function startServer() {
-    let serverPeer = new Peer('server', {host: 'localhost', port: 8000, path: '/peerjs'});
+    //let serverPeer = new Peer('server', {host: 'localhost', port: 80, path: '/peerjs'});
+
+    let [serverId, creatorName] = window.location.hash.substr(1).split(',');
+    if (!serverId)
+        throw new Error('No server ID given in URL hash.');
+    let serverPeer = new Peer(serverId, {host: 'localhost', port: 8000, path: '/peerjs'});
 
     let disconnected = false;
     function onDisconnect() {
@@ -35,12 +41,14 @@ function startServer() {
         }
 
         // Attempt to reconnect to signalling server after 1 second.
-        setTimeout(startServer, 1000);
+        //setTimeout(startServer, 1000);
     };
 
     // Log connection status and errors.
     serverPeer.on('open', serverId => {
         console.log('Connected to signalling server with ID: ' + serverId);
+
+        handlers.connected(serverId, creatorName);
     });
     serverPeer.on('disconnected', () => {
         console.error('Disconnected from signalling server.');
@@ -68,7 +76,7 @@ function startServer() {
             let playerId = connection.peer;
 
             let sendStateFunction = state => connection.send(state);
-            handlers.playerConnected(playerId, sendStateFunction);
+            handlers.playerConnected(playerId, connection.metadata.playerName, sendStateFunction);
 
             connection.on('close', () => {
                 console.log('Client disconnected:', connection.peer);
@@ -88,4 +96,16 @@ function startServer() {
             console.error('Error connecting to client:', error);
         });
     });
+}
+
+function connectToMatchmakingServer() {
+    let socket = new WebSocket('ws://localhost:8000/ws');
+
+    socket.onopen = event => {
+        let sendMessageFunction = message => {
+            socket.send(JSON.stringify(message));
+        };
+
+        handlers.connectedToMatchmakingServer(sendMessageFunction);
+    };
 }

@@ -2,3 +2,4 @@
 /dist/client/index.js
 /dist/game-server/index.js
 /dist/web-server.js
+/dist/matchmaking-server.js

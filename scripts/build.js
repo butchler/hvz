@@ -41,3 +41,12 @@ babel.transformFile(src + '/web-server.js', function (error, result) {
         console.log('Compiled web-server.js');
     }
 });
+babel.transformFile(src + '/matchmaking-server.js', function (error, result) {
+    if (error) {
+        console.error(`Error compiling matchmaking-server.js: ${error}`);
+    } else {
+        fs.writeFileSync(dist + '/matchmaking-server.js', result.code);
+
+        console.log('Compiled matchmaking-server.js');
+    }
+});
