@@ -120,11 +120,6 @@ export default {
             newState.players[playerId].position = state.players[playerId].position;
 
         state = newState;
-
-        if (state.players[playerId].isZombie)
-            document.getElementById('text-overlay').innerText = 'You are a zombie';
-        else
-            document.getElementById('text-overlay').innerText = 'You are a human';
     },
     keyPressedOrReleased(keyCode, key, isPressed) {
         if (!isConnected)
@@ -177,6 +172,22 @@ export default {
 
         // TODO: Add interpolation for other players' states.
         updateOtherPlayers();
+
+        // Update text overlay.
+        let text;
+        if (state.winner === 'human')
+            text = 'The humans won!';
+        else if (state.winner === 'zombie')
+            text = 'The zombies won!';
+        else {
+            if (state.players[playerId].isZombie)
+                text = 'You are a zombie';
+            else
+                text = 'You are a human';
+
+            text += ` (${Math.ceil(state.secondsRemaining)} seconds remaining)`;
+        }
+        document.getElementById('text-overlay').innerText = text;
 
         renderer.render(scene, camera);
 
@@ -386,8 +397,9 @@ function updateOtherPlayers() {
     util.onDiff(previousState ? previousState.players : {}, state.players, {
         add(playerId, playerState) {
             //let playerGeometry = new three.SphereGeometry(0.2, 16, 12);
-            let playerGeometry = new three.SphereGeometry(0.1, 16, 12);
-            let playerMaterial = new three.MeshPhongMaterial({ color: playerState.color });
+            let playerGeometry = new three.SphereGeometry(playerState.isZombie ? 0.2 : 0.1, 16, 12);
+            //let playerMaterial = new three.MeshPhongMaterial({ color: playerState.color });
+            let playerMaterial = new three.MeshPhongMaterial({ color: playerState.isZombie ? 'black' : 'white' });
             let playerMesh = new three.Mesh(playerGeometry, playerMaterial);
             scene.add(playerMesh);
 

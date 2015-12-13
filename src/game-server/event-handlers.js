@@ -8,8 +8,7 @@ import * as config from "common/config";
 let playerConnections = {};
 let state, maze;
 
-let connectedToMatchmaking, connectedToSignalling, sendMatchmakingMessage, gameServerId;
-let creatorName;
+let connectedToMatchmaking, connectedToSignalling, sendMatchmakingMessage, matchmakingData, numPlayersConnected;
 
 export default {
     init() {
@@ -19,6 +18,7 @@ export default {
 
         connectedToMatchmaking = false;
         connectedToSignalling = false;
+        numPlayersConnected = 0;
     },
     playerConnected(playerId, playerName, sendStateFunction) {
         playerConnections[playerId] = {
@@ -27,9 +27,11 @@ export default {
             playerName
         };
 
-        let isZombie = playerName === creatorName;
+        let isZombie = playerName === matchmakingData.creator;
 
         addPlayer({ state, maze }, playerId, isZombie);
+
+        numPlayersConnected += 1;
     },
     playerDisconnected(playerId) {
         delete state.players[playerId];
@@ -39,7 +41,7 @@ export default {
         if (Object.keys(playerConnections).length === 0 && connectedToMatchmaking) {
             sendMatchmakingMessage({
                 type: 'game-finished',
-                gameServerId
+                gameServerId: matchmakingData.gameServerId
             });
         }
     },
@@ -53,6 +55,10 @@ export default {
         util.mergeDeep(state.players[playerId].inputState, inputStateUpdate);
     },
     update(delta, now) {
+        // Don't start the game until all players have connected.
+        if (numPlayersConnected < matchmakingData.numPlayers)
+            return;
+
         updateState({ state, maze }, delta);
 
         for (let playerId in playerConnections) {
@@ -70,20 +76,18 @@ export default {
         if (connectedToSignalling) {
             sendMatchmakingMessage({
                 type: 'game-server-ready',
-                gameServerId
+                gameServerId: matchmakingData.gameServerId
             });
         }
     },
-    connected(serverId, creator) {
+    connected(matchData) {
         connectedToSignalling = true;
-        gameServerId = serverId;
-
-        creatorName = creator;
+        matchmakingData = matchData;
 
         if (connectedToMatchmaking) {
             sendMatchmakingMessage({
                 type: 'game-server-ready',
-                gameServerId
+                gameServerId: matchmakingData.gameServerId
             });
         }
     }

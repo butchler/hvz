@@ -101,7 +101,7 @@ export default function startMatchmakingServer(options) {
                 if (playerName === null) return sendError('Must choose a name before starting a game.');
                 if (!(playerName in lobbies)) return sendError('Must be the creator of a lobby to start a game.');
 
-                let [gameServerId, gameServerProcess] = startNewGameServer(playerName);
+                let [gameServerId, gameServerProcess] = startNewGameServer(playerName, lobbies[playerName]);
 
                 gameServers[gameServerId] = {
                     lobby: playerName,
@@ -228,9 +228,15 @@ export default function startMatchmakingServer(options) {
 }
 
 // Spawn a headless chromium process to run the game server.
-function startNewGameServer(lobby) {
+function startNewGameServer(lobbyName, lobby) {
     // Create random ID.
     let gameServerId = 'server' + ('' + Math.random()).substr(2);
+
+    let matchmakingData = {
+        gameServerId,
+        numPlayers: lobby.players.length,
+        creator: lobbyName
+    };
 
     // Use Xvfb to create a virtual screen that chromium can use, so you can run chrome without popping up a new window each time.
     /*let gameServerProcess = spawn('xvfb-run', [
@@ -242,7 +248,8 @@ function startNewGameServer(lobby) {
                 // Pass server id so game server can connect to and identify itself to the
                 // matchmaking server, and pass lobby id/creator name so the game server
                 // knows who the initial zombie should be.
-                'http://localhost:8000/game-server/index.html#' + gameServerId + ',' + lobby
+                //'http://localhost:8000/game-server/index.html#' + gameServerId + ',' + lobby
+                'http://localhost:8000/game-server/index.html#' + JSON.stringify(matchmakingdata)
     ]);*/
     /*let gameServerProcess = spawn('chromium', [
                 '--user-data-dir=/tmp/headless-chromium-' + gameServerId,

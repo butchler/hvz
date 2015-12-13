@@ -5,7 +5,8 @@ export function initState() {
         randomSeed: Math.floor(Math.random() * 0xffffffff),
         players: {},
         // TODO: End game after a certain time limit.
-        secondsLeft: 60 * 5
+        secondsRemaining: 60,
+        winner: null
     };
 }
 
@@ -40,6 +41,28 @@ export function updateState({ state, maze }, delta) {
     for (let playerId in state.players) {
         updatePlayer({ state, maze }, playerId, delta);
     }
+
+    // Decrement seconds remaining.
+    state.secondsRemaining = Math.max(0, state.secondsRemaining - delta);
+
+    // Check for win.
+    if (state.winner === null) {
+        // Zombies win if all humans are turned into zombies.
+        let allZombies = true;
+        for (let playerId in state.players) {
+            if (!state.players[playerId].isZombie) {
+                allZombies = false;
+                break;
+            }
+        }
+
+        if (allZombies) {
+            state.winner = 'zombie';
+        // Humans win when the time runs out.
+        } else if (state.secondsRemaining <= 0) {
+            state.winner = 'human';
+        }
+    }
 }
 
 export function updatePlayer({ state, maze }, playerId, delta) {
@@ -68,6 +91,10 @@ function movePlayer({ player, maze }, delta) {
     forward.applyAxisAngle(up, rotation);
     right.applyAxisAngle(up, rotation);
 
+    // Calculate grid position before moving in order to check for collisions with walls.
+    let previousRow = Math.round(position.z);
+    let previousColumn = Math.round(position.x);
+
     // Move forward and backward.
     if (player.inputState.forward)
         position.add(forward);
@@ -81,18 +108,19 @@ function movePlayer({ player, maze }, delta) {
 
     // Check for collisions with walls.
     const offset = 0.1;
-    let row = Math.round(position.z);
-    let column = Math.round(position.x);
 
     // North wall
-    if (maze.grid[row + 1] && maze.grid[row + 1][column])
-        position.z = Math.min(position.z, row + 0.5 - offset);
-    if (maze.grid[row - 1] && maze.grid[row - 1][column])
-        position.z = Math.max(position.z, row - 0.5 + offset);
-    if (maze.grid[row] && maze.grid[row][column + 1])
-        position.x = Math.min(position.x, column + 0.5 - offset);
-    if (maze.grid[row] && maze.grid[row][column - 1])
-        position.x = Math.max(position.x, column - 0.5 + offset);
+    if (maze.grid[previousRow + 1] && maze.grid[previousRow + 1][previousColumn])
+        position.z = Math.min(position.z, previousRow + 0.5 - offset);
+    // South wall
+    if (maze.grid[previousRow - 1] && maze.grid[previousRow - 1][previousColumn])
+        position.z = Math.max(position.z, previousRow - 0.5 + offset);
+    // East wall
+    if (maze.grid[previousRow] && maze.grid[previousRow][previousColumn + 1])
+        position.x = Math.min(position.x, previousColumn + 0.5 - offset);
+    // West wall
+    if (maze.grid[previousRow] && maze.grid[previousRow][previousColumn - 1])
+        position.x = Math.max(position.x, previousColumn - 0.5 + offset);
 
     player.position = [position.x, position.y, position.z];
 }
