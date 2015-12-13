@@ -7,13 +7,14 @@ import express from "express";
 import startMatchmakingServer from "matchmaking-server";
 import {ExpressPeerServer} from "peer"; // Note: "peer" is PeerJS's PeerServer
                                         // library, and "peerjs" is the client side library.
+import * as config from "config";
 
 // Start simple file server on port 8000 serving files from dist/.
 let app = express();
 app.use(express.static(__dirname + '/'));
-let server = app.listen(8000);
+let server = app.listen(config.webServerPort);
 
 // Start PeerJS PeerServer.
-app.use('/peerjs', ExpressPeerServer(server, {debug: true}));
+app.use('/peerjs', ExpressPeerServer(server));
 
-startMatchmakingServer({ server, path: '/ws' });
+startMatchmakingServer({ server, path: config.matchmakingServerPath });

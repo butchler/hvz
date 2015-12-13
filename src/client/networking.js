@@ -1,8 +1,9 @@
 import Peer from "peerjs";
 import handlers from "client/event-handlers";
+import * as config from "common/config";
 
 export function connectToMatchmakingServer() {
-    let socket = new WebSocket('ws://localhost:8000/ws');
+    let socket = new WebSocket(config.matchmakingServerUrl);
 
     socket.onopen = event => {
         let sendMessageFunction = message => {
@@ -20,7 +21,7 @@ export function connectToMatchmakingServer() {
 }
 
 export function connectToGameServer(gameServerId, playerName) {
-    let clientPeer = new Peer({host: 'localhost', port: 8000, path: '/peerjs'});
+    let clientPeer = new Peer(config.signallingServerConfig);
 
     let disconnected = false;
     function onDisconnect(connection) {
@@ -37,6 +38,7 @@ export function connectToGameServer(gameServerId, playerName) {
 
         // Attempt to reconnect after 1 second.
         //setTimeout(connectToGameServer, 1000);
+        alert('Disconnected from server, refresh to reconnect.');
     };
 
     clientPeer.on('open', (clientId) => {

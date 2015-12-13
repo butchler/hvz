@@ -21,9 +21,8 @@ let playerName, currentLobby;
 export default {
     init() {
         // Init renderer and camera.
-        renderer = new three.WebGLRenderer({ antialias: true });
-        //renderer.setClearColor('black', 1.0);
-        renderer.setClearColor(0x33aaee, 1.0);
+        renderer = new three.WebGLRenderer({ antialias: config.antialias });
+        renderer.setClearColor(config.skyColor, 1.0);
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.shadowMap.enabled = true;
         document.getElementById('canvas-container').appendChild(renderer.domElement);
@@ -40,10 +39,8 @@ export default {
         // Init scene.
         scene = new three.Scene();
 
-        //scene.add(new three.AmbientLight(0x404040));
-        scene.add(new three.AmbientLight(0xaaaaaa));
-        //scene.fog = new three.Fog(0x000000, 2, 5);
-        scene.fog = new three.Fog(0x005599, 2, 10);
+        scene.add(new three.AmbientLight(config.ambientColor));
+        scene.fog = new three.Fog(config.fogColor, config.fogMin, config.fogMax);
 
         // Init camera container. Used to make rotating the camera easier.
         cameraContainer = new three.Object3D();
@@ -52,9 +49,7 @@ export default {
         cameraContainer.rotateY(-Math.PI / 2);
         scene.add(cameraContainer);
 
-
         isConnected = false;
-
         lastStateTimestamp = 0;
 
         // Matchmaking
@@ -342,27 +337,20 @@ function initMaze() {
     }
 
     // Add maze object.
-    //let mazeMaterial = new three.MeshPhongMaterial({ map: textureLoader.load('images/concrete-red.jpg') });
-    let mazeMaterial = new three.MeshPhongMaterial({ color: 'white' });
+    let mazeMaterial = new three.MeshPhongMaterial({ color: config.wallColor });
     let mazeObject = new three.Mesh(mazeGeometry, mazeMaterial);
 
     // Add ground plane.
-    let groundTexture = textureLoader.load('images/concrete-gray.jpg');
-    groundTexture.wrapS = groundTexture.wrapT = three.RepeatWrapping;
-    groundTexture.repeat.set(4, 4);
     let ground = new three.Mesh(
             new three.PlaneGeometry(config.mazeWidth, config.mazeHeight),
             new three.MeshPhongMaterial({
-                /*map: groundTexture,
-                color: 0x444444*/
-                color: 0x666666
+                color: config.groundColor
             }));
     ground.rotateX(-Math.PI / 2); // Make ground lay flat on XZ plane.
     ground.position.set(centerX, -0.5, centerY);
 
     // Center a light above the maze.
-    //let light = new three.PointLight(0xffffff);
-    let light = new three.PointLight(0x888888);
+    let light = new three.PointLight(config.lightColor);
     light.position.set(centerX, 20, centerY);
 
     scene.add(mazeObject);
@@ -373,14 +361,14 @@ function initMaze() {
 function updateCamera(player) {
     // Rotate the camera based on mouse position.
     // Rotate camera horizontally.
-    let horizontalAngle = -inputState.mouse.x * 0.002
-        cameraContainer.rotation.y = horizontalAngle;
+    let horizontalAngle = -inputState.mouse.x * config.mouseSensitivity;
+    cameraContainer.rotation.y = horizontalAngle;
 
     // Rotate camera vertically.
     // Make it so that vertical rotation cannot loop.
-    let maxMouseY = Math.PI / 2 / 0.002;
+    let maxMouseY = Math.PI / 2 / config.mouseSensitivity;
     inputState.mouse.y = Math.max(-maxMouseY, Math.min(maxMouseY, inputState.mouse.y));
-    let verticalAngle = -inputState.mouse.y * 0.002;
+    let verticalAngle = -inputState.mouse.y * config.mouseSensitivity;
     camera.rotation.x = verticalAngle;
 
     // Move camera to player's position.
@@ -388,7 +376,7 @@ function updateCamera(player) {
     cameraContainer.position.copy(playerPosition);
 
     // Narrow FOV if player is a zombie.
-    camera.fov = player.isZombie ? 45 : 65;
+    camera.fov = player.isZombie ? config.zombieFov : config.humanFov;
     camera.updateProjectionMatrix();
 }
 
@@ -396,10 +384,8 @@ function updateOtherPlayers() {
     // Update other player meshes.
     util.onDiff(previousState ? previousState.players : {}, state.players, {
         add(playerId, playerState) {
-            //let playerGeometry = new three.SphereGeometry(0.2, 16, 12);
-            let playerGeometry = new three.SphereGeometry(playerState.isZombie ? 0.2 : 0.1, 16, 12);
-            //let playerMaterial = new three.MeshPhongMaterial({ color: playerState.color });
-            let playerMaterial = new three.MeshPhongMaterial({ color: playerState.isZombie ? 'black' : 'white' });
+            let playerGeometry = new three.SphereGeometry(playerState.isZombie ? config.zombieRadius : config.humanRadius, 16, 12);
+            let playerMaterial = new three.MeshPhongMaterial({ color: playerState.isZombie ? config.zombieColor : config.humanColor });
             let playerMesh = new three.Mesh(playerGeometry, playerMaterial);
             scene.add(playerMesh);
 

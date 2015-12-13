@@ -1,5 +1,6 @@
 import * as ws from "ws";
 import {spawn} from "child_process";
+import * as config from "config";
 
 export default function startMatchmakingServer(options) {
     let server = new ws.Server(options);
@@ -239,7 +240,7 @@ function startNewGameServer(lobbyName, lobby) {
     };
 
     // Use Xvfb to create a virtual screen that chromium can use, so you can run chrome without popping up a new window each time.
-    /*let gameServerProcess = spawn('xvfb-run', [
+    let gameServerProcess = spawn('xvfb-run', [
             'chromium',
                 // Need to create a new user data directory for each process so that it
                 // doesn't open up the page in a new tab in an existing window.
@@ -248,16 +249,8 @@ function startNewGameServer(lobbyName, lobby) {
                 // Pass server id so game server can connect to and identify itself to the
                 // matchmaking server, and pass lobby id/creator name so the game server
                 // knows who the initial zombie should be.
-                //'http://localhost:8000/game-server/index.html#' + gameServerId + ',' + lobby
-                'http://localhost:8000/game-server/index.html#' + JSON.stringify(matchmakingdata)
-    ]);*/
-    /*let gameServerProcess = spawn('chromium', [
-                '--user-data-dir=/tmp/headless-chromium-' + gameServerId,
-                '--no-first-run',
-                'http://localhost:8000/game-server/index.html#' + gameServerId + ',' + lobby
+                config.webServerUrl + '/game-server/index.html#' + JSON.stringify(matchmakingData)
     ]);
 
-    return [gameServerId, gameServerProcess];*/
-
-    return ['server', null];
+    return [gameServerId, gameServerProcess];
 }

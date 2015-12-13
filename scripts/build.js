@@ -32,21 +32,20 @@ compiler.run(function(error, stats) {
 });
 
 // Compile web server for node target.
-babel.transformFile(src + '/web-server.js', function (error, result) {
-    if (error) {
-        console.error(`Error compiling web-server.js: ${error}`);
-    } else {
-        fs.writeFileSync(dist + '/web-server.js', result.code);
+function runBabel(filename, outputFilename) {
+    var outputFilename = outputFilename || filename;
 
-        console.log('Compiled web-server.js');
-    }
-});
-babel.transformFile(src + '/matchmaking-server.js', function (error, result) {
-    if (error) {
-        console.error(`Error compiling matchmaking-server.js: ${error}`);
-    } else {
-        fs.writeFileSync(dist + '/matchmaking-server.js', result.code);
+    babel.transformFile(src + '/' + filename, function (error, result) {
+        if (error) {
+            console.error(`Error compiling ${filename}: ${error}`);
+        } else {
+            fs.writeFileSync(dist + '/' + outputFilename, result.code);
 
-        console.log('Compiled matchmaking-server.js');
-    }
-});
+            console.log('Compiled ' + filename);
+        }
+    });
+}
+
+runBabel('web-server.js');
+runBabel('matchmaking-server.js');
+runBabel('common/config.js', 'config.js');

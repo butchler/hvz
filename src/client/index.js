@@ -12,7 +12,6 @@ util.animationLoop(handlers.render);
 function initEventHandlers() {
     // Use pointerlock to move camera.
     let requestPointerLock = document.body.requestPointerLock || document.body.mozRequestPointerLock;
-    //document.addEventListener('click', event => requestPointerLock.call(document.body));
     document.getElementById('canvas-container').addEventListener('click', event => requestPointerLock.call(document.body));
     // TODO: Handle pointerlock events.
     /*document.addEventListener('pointerlockchange', (event) => {});

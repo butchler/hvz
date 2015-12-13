@@ -3,3 +3,4 @@
 /dist/game-server/index.js
 /dist/web-server.js
 /dist/matchmaking-server.js
+/dist/config.js

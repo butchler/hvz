@@ -1,6 +1,7 @@
 import Peer from "peerjs";
 import * as util from "common/util";
 import handlers from "game-server/event-handlers";
+import * as config from "common/config";
 
 handlers.init();
 startServer();
@@ -10,7 +11,7 @@ connectToMatchmakingServer();
     // Dirty hack using a web worker to get around the fact that
     // setTimeout/setInterval are throttled to 1 call per second if the page
     // isn't focused.
-    let workerCode = "onmessage = function() { setTimeout(function () { postMessage('tock'); }, 1000 / 60); };";
+    let workerCode = `onmessage = function() { setTimeout(function () { postMessage('tock'); }, 1000 / ${config.gameServerFrameRate}); };`;
     let workerURL = window.URL.createObjectURL(new Blob([workerCode]));
     let worker = new Worker(workerURL);
 
@@ -37,11 +38,7 @@ function startServer() {
         return;
     }
 
-    /*let [serverId, creatorName] = window.location.hash.substr(1).split(',');
-    if (!serverId) throw new Error('No server ID given in URL hash.');*/
-    //let serverId = 'server', creatorName = 'creator';
-
-    let serverPeer = new Peer(matchmakingData.gameServerId, {host: 'localhost', port: 8000, path: '/peerjs'});
+    let serverPeer = new Peer(matchmakingData.gameServerId, config.signallingServerConfig);
 
     let disconnected = false;
     function onDisconnect() {
@@ -112,7 +109,7 @@ function startServer() {
 }
 
 function connectToMatchmakingServer() {
-    let socket = new WebSocket('ws://localhost:8000/ws');
+    let socket = new WebSocket(config.matchmakingServerUrl);
 
     socket.onopen = event => {
         let sendMessageFunction = message => {

@@ -1,19 +1,19 @@
 import {Vector3} from "three";
+import * as config from "common/config";
 
 export function initState() {
     return {
         randomSeed: Math.floor(Math.random() * 0xffffffff),
         players: {},
         // TODO: End game after a certain time limit.
-        secondsRemaining: 60,
+        secondsRemaining: config.gameLength,
         winner: null
     };
 }
 
-const playerColors = ['red', 'blue', 'green', 'yellow', 'purple', 'pink', 'black', 'white', 'brown', 'orange'];
 let randomInt = (max) => Math.floor(Math.random()*max);
 export function addPlayer({ state, maze }, playerId, isZombie = false) {
-    // Find an unoccupied position in the maze.
+    // Find an unoccupied position in the maze to place the player.
     let x, y;
     do {
         x = randomInt(maze.width), y = randomInt(maze.height);
@@ -21,7 +21,6 @@ export function addPlayer({ state, maze }, playerId, isZombie = false) {
 
     state.players[playerId] = {
         position: [x, 0, y],
-        color: playerColors[randomInt(playerColors.length)],
         isZombie,
         inputState: {
             mouse: {
@@ -79,12 +78,12 @@ export function updatePlayer({ state, maze }, playerId, delta) {
 }
 
 function movePlayer({ player, maze }, delta) {
-    const speed = player.isZombie ? 5 : 2;
+    const speed = player.isZombie ? config.zombieSpeed : config.humanSpeed;
 
     let position = new Vector3(...player.position);
     let up = new Vector3(0, 1, 0);
 
-    let rotation = -player.inputState.mouse.x * 0.002;
+    let rotation = -player.inputState.mouse.x * config.mouseSensitivity;
     let forward = new Vector3(0, 0, -speed * delta);
     let right = new Vector3(speed * delta, 0, 0);
 
