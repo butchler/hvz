@@ -1,0 +1,11 @@
+A 3D online multiplayer humans vs. zombies game (basically, online tag). Uses
+three.js for rendering, WebSockets for peer discovery/matchmaking, and WebRTC
+DataChannels (via PeerJS) for input/game state communication.
+
+Despite using WebRTC, the game uses a client-server model, where the game
+server is the authority on what the current state of the game is. However,
+because the game server uses WebRTC, it must also be run in a browser
+(node-webrtc is a node-only implementation of WebRTC, but I'm not sure how
+stable it is, and PeerJS wouldn't be able to work with it, anyway). When a new
+game is started, the matchmaking server spawns a headless chromium process
+using xvfb to create a fake screen for the chrome browser to run in.
