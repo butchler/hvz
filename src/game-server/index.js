@@ -49,9 +49,6 @@ function startServer() {
 
             serverPeer.destroy();
         }
-
-        // Attempt to reconnect to signalling server after 1 second.
-        //setTimeout(startServer, 1000);
     };
 
     // Log connection status and errors.

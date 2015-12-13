@@ -118,7 +118,8 @@ export default function startMatchmakingServer(options) {
                     return;
                 }
 
-                let lobby = lobbies[gameServers[message.gameServerId].lobby];
+                let lobbyName = gameServers[message.gameServerId].lobby;
+                let lobby = lobbies[lobbyName];
 
                 // Do nothing if this game was already started and the lobby removed.
                 if (lobby === undefined)
@@ -135,9 +136,9 @@ export default function startMatchmakingServer(options) {
                 });
 
                 // Destroy the lobby when the game has started.
-                delete lobbies[lobby];
+                delete lobbies[lobbyName];
 
-                console.log(`Game started and ${lobby}'s lobby destroyed.`);
+                console.log(`Game started and ${lobbyName}'s lobby destroyed.`);
 
                 broadcastLobbies();
             } else if (message.type === 'game-finished') {
@@ -241,6 +242,8 @@ function startNewGameServer(lobbyName, lobby) {
 
     // Use Xvfb to create a virtual screen that chromium can use, so you can run chrome without popping up a new window each time.
     let gameServerProcess = spawn('xvfb-run', [
+            '-a',
+            '--server-args="-screen 0, 1024x768x16"',
             'chromium',
                 // Need to create a new user data directory for each process so that it
                 // doesn't open up the page in a new tab in an existing window.

@@ -37,7 +37,7 @@ function runBabel(filename, outputFilename) {
 
     babel.transformFile(src + '/' + filename, function (error, result) {
         if (error) {
-            console.error(`Error compiling ${filename}: ${error}`);
+            console.error('Error compiling ' + filename + ': ' + error);
         } else {
             fs.writeFileSync(dist + '/' + outputFilename, result.code);
 

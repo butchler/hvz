@@ -25,19 +25,17 @@ export function connectToGameServer(gameServerId, playerName) {
 
     let disconnected = false;
     function onDisconnect(connection) {
+        // Make sure onDisconnect only happens once.
+        if (disconnected)
+            return;
+        else
+            disconnected = true;
+
         handlers.disconnected();
 
         // Destroy peer.
-        if (clientPeer && !disconnected) {
-            // Prevents recusion due to peer.destroy() calling
-            // connection.on('close'), which calls onDisconnect().
-            disconnected = true;
+        if (clientPeer) clientPeer.destroy();
 
-            clientPeer.destroy();
-        }
-
-        // Attempt to reconnect after 1 second.
-        //setTimeout(connectToGameServer, 1000);
         alert('Disconnected from server, refresh to reconnect.');
     };
 
