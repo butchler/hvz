@@ -1,5 +1,4 @@
-export const mazeWidth = 20,
-       mazeHeight = 20,
+export const mazeWidth = 30, mazeHeight = 30,
        webServerPort = 8000,
        webServerUrl = 'http://localhost:' + webServerPort,
        matchmakingServerPath = '/ws', matchmakingServerUrl = 'ws://localhost:8000' + matchmakingServerPath,
