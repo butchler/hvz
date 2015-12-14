@@ -9,7 +9,7 @@ import * as config from "common/config";
 let renderer, camera, scene, cameraContainer;
 let textureLoader = new three.TextureLoader();
 let playerId, sendInput, isConnected;
-let previousState, state, inputState, inputQueue, lastStateTimestamp;
+let previousState, state, serverState, previousServerState, inputState, inputQueue, lastStateTimestamp, stateReceivedTime;
 let playerMeshes = {};
 let maze;
 
@@ -56,6 +56,8 @@ export default {
         connectToMatchmakingServer();
         isConnectedToMatchmaking = false;
         playerName = currentLobby = null;
+
+        stateReceivedTime = window.performance.now();
 
         /*connectToGameServer('server', null);
         showSection('canvas-container');*/
@@ -114,7 +116,12 @@ export default {
         if (oldPosition.distanceTo(newPosition) < 0.5)
             newState.players[playerId].position = state.players[playerId].position;
 
+        if (serverState) previousServerState = serverState;
+        serverState = util.cloneObject(state);
+
         state = newState;
+
+        stateReceivedTime = window.performance.now();
     },
     keyPressedOrReleased(keyCode, key, isPressed) {
         if (!isConnected)
@@ -165,7 +172,6 @@ export default {
 
         updateCamera(player);
 
-        // TODO: Add interpolation for other players' states.
         updateOtherPlayers();
 
         // Update text overlay.
@@ -383,22 +389,58 @@ function updateCamera(player) {
 function updateOtherPlayers() {
     // Update other player meshes.
     util.onDiff(previousState ? previousState.players : {}, state.players, {
-        add(playerId, playerState) {
+        add(otherPlayerId, playerState) {
+            // Don't add mesh for the user, just the other players.
+            if (otherPlayerId === playerId)
+                return;
+
             let playerGeometry = new three.SphereGeometry(playerState.isZombie ? config.zombieRadius : config.humanRadius, 16, 12);
             let playerMaterial = new three.MeshPhongMaterial({ color: playerState.isZombie ? config.zombieColor : config.humanColor });
             let playerMesh = new three.Mesh(playerGeometry, playerMaterial);
             scene.add(playerMesh);
 
-            playerMeshes[playerId] = playerMesh;
+            playerMeshes[otherPlayerId] = playerMesh;
         },
-        remove(playerId, playerState) {
-            scene.remove(playerMeshes[playerId]);
-            delete playerMeshes[playerId];
+        remove(otherPlayerId, playerState) {
+            if (otherPlayerId === playerId)
+                return;
+
+            scene.remove(playerMeshes[otherPlayerId]);
+            delete playerMeshes[otherPlayerId];
         },
-        exists(playerId, playerState) {
-            let playerMesh = playerMeshes[playerId];
+        exists(otherPlayerId, playerState) {
+            if (otherPlayerId === playerId)
+                return;
+
+            let playerMesh = playerMeshes[otherPlayerId];
             let playerPosition = new three.Vector3(...playerState.position);
             playerMesh.position.copy(playerPosition);
         }
     });
+
+    // Interpolate other player states to make movement look smooth.
+    if (previousServerState) {
+        for (let otherPlayerId in state.players) {
+            if (!(otherPlayerId in previousServerState.players))
+                continue;
+
+            // Don't interpolate user, just other players.
+            if (otherPlayerId === playerId)
+                continue;
+
+            // Interpolate other player's positions from their previous position to their current one.
+            // This means each player will see the slight past position of each other player.
+            let position = new three.Vector3(...state.players[otherPlayerId].position);
+            let previousPosition = new three.Vector3(...previousServerState.players[otherPlayerId].position);
+
+            let msPerFrame = 1000 / config.gameServerFrameRate;
+            let t = (window.performance.now() - stateReceivedTime) / msPerFrame;
+            // Only interpolate a little bit into the future.
+            t = Math.min(t, 1.5);
+            previousPosition.lerp(position, t);
+
+            let playerMesh = playerMeshes[otherPlayerId];
+            playerMesh.position.copy(previousPosition);
+        }
+    }
 }
