@@ -184,8 +184,6 @@ export function cloneObject(object) {
 //   exists(key, newValue)
 //
 export function onDiff(oldObject, newObject, {add, remove, change, exists}, equals = objectsEqual) {
-    // TODO: Add custom equality checking.
-
     if (!isObject(oldObject) || !isObject(newObject))
         throw new Error('onDiff() cannot diff non-objects.');
     if ((add && typeof add !== "function") ||

@@ -5,7 +5,6 @@ export function initState() {
     return {
         randomSeed: Math.floor(Math.random() * 0xffffffff),
         players: {},
-        // TODO: End game after a certain time limit.
         secondsRemaining: config.gameLength,
         winner: null
     };
@@ -30,8 +29,7 @@ export function addPlayer({ state, maze }, playerId, isZombie = false) {
             forward: false,
             backward: false,
             right: false,
-            left: false,
-            wantsToTransform: false
+            left: false
         }
     };
 }
@@ -66,10 +64,6 @@ export function updateState({ state, maze }, delta) {
 
 export function updatePlayer({ state, maze }, playerId, delta) {
     let player = state.players[playerId];
-
-    if (player.inputState.wantsToTransform) {
-        player.isZombie = !player.isZombie;
-    }
 
     movePlayer({ player, maze }, delta);
 

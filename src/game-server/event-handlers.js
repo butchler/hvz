@@ -67,8 +67,6 @@ export default {
         }
 
         state.timestamp = window.performance.now();
-
-        // TODO: Check if game has finished.
     },
     connectedToMatchmakingServer(sendMessageFunction) {
         connectedToMatchmaking = true;

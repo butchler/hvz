@@ -137,8 +137,6 @@ export default {
             keyUpdate = { left: isPressed };
         else if (key === 'd')
             keyUpdate = { right: isPressed };
-        else if (key === ' ' && isPressed)
-            keyUpdate = { wantsToTransform: true };
 
         // Send key state update to server if one of the movement keys were
         // pressed or released.
@@ -162,11 +160,6 @@ export default {
         updatePlayer({ state, maze }, playerId, delta);
 
         let player = state.players[playerId];
-
-        if (previousState && player.isZombie !== previousState.players[playerId].isZombie) {
-            // The player has transformed.
-            inputState.wantsToTransform = false;
-        }
 
         sendInput(delta);
 
