@@ -8,7 +8,8 @@ import * as config from "common/config";
 let playerConnections = {};
 let state, maze;
 
-let connectedToMatchmaking, connectedToSignalling, sendMatchmakingMessage, matchmakingData, numPlayersConnected;
+let connectedToMatchmaking, connectedToSignalling, sendMatchmakingMessage, gameServerId, gameStarted;
+let creator, numPlayers, numPlayersConnected;
 
 export default {
     init() {
@@ -18,6 +19,7 @@ export default {
 
         connectedToMatchmaking = false;
         connectedToSignalling = false;
+        gameStarted = false;
         numPlayersConnected = 0;
     },
     playerConnected(playerId, playerName, sendStateFunction) {
@@ -27,7 +29,7 @@ export default {
             playerName
         };
 
-        let isZombie = playerName === matchmakingData.creator;
+        let isZombie = playerName === creator;
 
         addPlayer({ state, maze }, playerId, isZombie);
 
@@ -37,15 +39,14 @@ export default {
         delete state.players[playerId];
         delete playerConnections[playerId];
 
-        // If all players disconnect, tell the matchmaking server to kill the process.
-        if (Object.keys(playerConnections).length === 0 && connectedToMatchmaking) {
-            sendMatchmakingMessage({
-                type: 'game-finished',
-                gameServerId: matchmakingData.gameServerId
-            });
-        }
+        // Reset the server if all players are disconnected.
+        if (Object.keys(playerConnections).length === 0)
+            window.location.reload();
     },
     receivedInput(playerId, inputStateUpdate) {
+        if (!(playerId in playerConnections && playerId in state.players))
+            return;
+
         // Ignore old/out of order messages.
         if (inputStateUpdate.timestamp < playerConnections[playerId].lastInputTimestamp)
             return;
@@ -56,7 +57,7 @@ export default {
     },
     update(delta, now) {
         // Don't start the game until all players have connected.
-        if (numPlayersConnected < matchmakingData.numPlayers)
+        if (!gameStarted || numPlayersConnected < numPlayers)
             return;
 
         updateState({ state, maze }, delta);
@@ -75,20 +76,30 @@ export default {
 
         if (connectedToSignalling) {
             sendMatchmakingMessage({
-                type: 'game-server-ready',
-                gameServerId: matchmakingData.gameServerId
+                type: 'game-server-started',
+                gameServerId
             });
         }
     },
-    connected(matchData) {
+    connected(serverId) {
         connectedToSignalling = true;
-        matchmakingData = matchData;
+        gameServerId = serverId;
 
         if (connectedToMatchmaking) {
             sendMatchmakingMessage({
-                type: 'game-server-ready',
-                gameServerId: matchmakingData.gameServerId
+                type: 'game-server-started',
+                gameServerId
             });
         }
+    },
+    startGame(_creator, _numPlayers) {
+        gameStarted = true;
+
+        creator = _creator;
+        numPlayers = _numPlayers;
+
+        sendMatchmakingMessage({
+            type: 'game-server-ready'
+        });
     }
 };

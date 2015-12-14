@@ -11,6 +11,7 @@ export default function startMatchmakingServer(options) {
 
     server.on('connection', socket => {
         let playerName = null;
+        let gameServerId = null;
 
         socket.on('message', messageString => {
             let message = null;
@@ -102,33 +103,44 @@ export default function startMatchmakingServer(options) {
                 if (playerName === null) return sendError('Must choose a name before starting a game.');
                 if (!(playerName in lobbies)) return sendError('Must be the creator of a lobby to start a game.');
 
-                let [gameServerId, gameServerProcess] = startNewGameServer(playerName, lobbies[playerName]);
-
-                gameServers[gameServerId] = {
-                    lobby: playerName,
-                    process: gameServerProcess
-                };
+                startGame(playerName, lobbies[playerName].players.length, gameServers);
 
                 console.log(`Starting ${playerName}'s game...`);
-            } else if (message.type === 'game-server-ready') {
+            } else if (message.type === 'game-server-started') {
                 // Step 5. The game server also connects to the websocket
                 // server and to tell the players that it's ready.
-                if (gameServers[message.gameServerId] === undefined) {
-                    console.error(`Game server doesn't exist: ${message.gameServerId}.`);
+                if (!message.gameServerId) {
+                    console.error('Invalid game server id:', message.gameServerId);
                     return;
                 }
 
-                let lobbyName = gameServers[message.gameServerId].lobby;
-                let lobby = lobbies[lobbyName];
+                gameServerId = message.gameServerId;
+                gameServers[gameServerId] = {
+                    gameStarted: false,
+                    socket
+                };
 
-                // Do nothing if this game was already started and the lobby removed.
-                if (lobby === undefined)
+                console.log(`Game server ${gameServerId} connected.`);
+            } else if (message.type === 'game-server-ready') {
+                if (gameServerId === null) {
+                    console.error('Must get game-server-started before game-server-ready.');
                     return;
+                }
 
+                let gameServer = gameServers[gameServerId];
+
+                if (!(gameServer.lobby in lobbies)) {
+                    console.error(`Lobby ${gameServer.lobby} no longer exists, cannot start game.`);
+                    return;
+                }
+
+                let lobby = lobbies[gameServer.lobby];
+
+                // Tell players to connect to server.
                 lobby.players.forEach(playerName => {
                     players[playerName].socket.send(JSON.stringify({
                         type: 'game-started',
-                        gameServerId: message.gameServerId
+                        gameServerId
                     }));
 
                     // Also remove players from the lobby when the game starts.
@@ -136,27 +148,11 @@ export default function startMatchmakingServer(options) {
                 });
 
                 // Destroy the lobby when the game has started.
-                delete lobbies[lobbyName];
+                delete lobbies[gameServer.lobby];
 
-                console.log(`Game started and ${lobbyName}'s lobby destroyed.`);
-
-                broadcastLobbies();
-            } else if (message.type === 'game-finished') {
-                // Step 6. Kill the game server's process when the game server
-                // tells us the game is over.
-                if (gameServers[message.gameServerId] === undefined) {
-                    console.error(`Game server doesn't exist: ${message.gameServerId}.`);
-                    return;
-                }
-
-                //gameServers[message.gameServerId].process.kill();
-                delete gameServers[message.gameServerId];
-
-                console.log(`Game server ${message.gameServerId} ended.`);
-
-                // TODO: Also kill processes after 30 minutes or so as a backup.
+                console.log(`Game started and ${gameServer.lobby}'s lobby destroyed.`);
             } else {
-                console.error('Unknown message', JSON.stringify(message));
+                console.error('Unknown message', messageString);
             }
         });
 
@@ -169,6 +165,9 @@ export default function startMatchmakingServer(options) {
                 console.log(`Player '${playerName}' disconnected.`);
 
                 delete players[playerName];
+            } else if (gameServerId !== null) {
+                // Remove server from list of servers when it disconnects.
+                delete gameServers[gameServerId];
             }
         });
 
@@ -211,9 +210,6 @@ export default function startMatchmakingServer(options) {
                     }));
                 }
             }
-
-            /*console.log('lobbies', JSON.stringify(lobbies));
-            console.log('players', JSON.stringify(Object.keys(players).map(p => p + ' -> ' + players[p].lobby)));*/
         }
 
         function sendError(errorMessage) {
@@ -229,8 +225,35 @@ export default function startMatchmakingServer(options) {
     console.log('Matchmaking server started.')
 }
 
+// Send the players in the given lobby to a new game server.
+function startGame(creator, numPlayers, gameServers) {
+    // Check if there is an existing game server available that hasn't started a game yet.
+    for (let gameServerId in gameServers) {
+        if (!gameServers[gameServerId].gameStarted) {
+            let gameServer = gameServers[gameServerId];
+
+            // Tell server how many players to expect and who the initial zombie should be.
+            // Wait until receiving the game-server-ready message back from the
+            // server before telling the players to connect to the server.
+            gameServer.gameStarted = true;
+            gameServer.lobby = creator;
+            gameServer.socket.send(JSON.stringify({
+                type: 'start-game',
+                numPlayers,
+                creator
+            }));
+
+            return;
+        }
+    }
+
+    // TODO: spawn a new game server if one isn't available.
+    // Retry after a couple seconds if no game servers were found.
+    setTimeout(_ => startGame(creator, numPlayers, gameServers), 2000);
+}
+
 // Spawn a headless chromium process to run the game server.
-function startNewGameServer(lobbyName, lobby) {
+/*function startNewGameServer(lobbyName, lobby) {
     // Create random ID.
     let gameServerId = 'server' + ('' + Math.random()).substr(2);
 
@@ -256,4 +279,4 @@ function startNewGameServer(lobbyName, lobby) {
     ]);
 
     return [gameServerId, gameServerProcess];
-}
+}*/

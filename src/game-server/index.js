@@ -24,38 +24,20 @@ connectToMatchmakingServer();
 util.animationLoop(handlers.update, requestFrameWithWorker);
 
 function startServer() {
-    // Parse info sent by matchmaking server via the URL hash as a JSON object.
-    let matchmakingData;
-    try {
-        matchmakingData = JSON.parse(window.location.hash.substr(1));
-
-        if (!('gameServerId' in matchmakingData && 'creator' in matchmakingData && 'numPlayers' in matchmakingData)) {
-            console.error('Invalid matchmakingData:', window.location.hash.substr(1));
-            return;
-        }
-    } catch (error) {
-        console.error('Error reading matchmaking data from URL:', error);
-        return;
-    }
-
-    let serverPeer = new Peer(matchmakingData.gameServerId, config.signallingServerConfig);
+    let gameServerId = 'server' + ('' + Math.random()).substr(2);
+    let serverPeer = new Peer(gameServerId, config.signallingServerConfig);
 
     let disconnected = false;
     function onDisconnect() {
-        if (serverPeer && !disconnected) {
-            // Prevents recusion due to peer.destroy() calling
-            // connection.on('close'), which calls onDisconnect().
-            disconnected = true;
-
-            serverPeer.destroy();
-        }
+        // Reload the server when disconnected from the signalling server.
+        setTimeout(_ => window.location.reload(), 2000);
     };
 
     // Log connection status and errors.
     serverPeer.on('open', serverId => {
         console.log('Connected to signalling server with ID: ' + serverId);
 
-        handlers.connected(matchmakingData);
+        handlers.connected(gameServerId);
     });
     serverPeer.on('disconnected', () => {
         console.error('Disconnected from signalling server.');
@@ -114,5 +96,21 @@ function connectToMatchmakingServer() {
         };
 
         handlers.connectedToMatchmakingServer(sendMessageFunction);
+    };
+
+    socket.onmessage = event => {
+        let messageString = event.data, message = null;
+        try {
+            message = JSON.parse(messageString);
+        } catch (error) {
+            console.error(`Could not parse message "${messageString}": ${error}`);
+            return;
+        }
+
+        if (message.type === 'start-game') {
+            handlers.startGame(message.creator, message.numPlayers);
+        } else {
+            console.error('Unknown message:', messageString);
+        }
     };
 }
