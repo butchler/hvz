@@ -22,4 +22,5 @@ export const mazeWidth = 30, mazeHeight = 30,
        humanRadius = 0.1, zombieRadius = 0.2,
        humanColor = 'white', zombieColor = 'black',
        humanSpeed = 2, zombieSpeed = 5, // maze cells/seconds
-       gameLength = 60; // seconds
+       gameLength = 60, // seconds
+       invisibleDuration = 3, invisibleCooldown = 10; // seconds

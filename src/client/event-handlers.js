@@ -121,6 +121,10 @@ export default {
 
         state = newState;
 
+        // Reset input state once we have turned invisible.
+        if (state.players[playerId].isInvisible || state.players[playerId].invisibleCooldown > 0)
+            inputState.turnInvisible = false;
+
         stateReceivedTime = window.performance.now();
     },
     keyPressedOrReleased(keyCode, key, isPressed) {
@@ -137,6 +141,8 @@ export default {
             keyUpdate = { left: isPressed };
         else if (key === 'd')
             keyUpdate = { right: isPressed };
+        else if (key === ' ' && isPressed && !state.players[playerId].isInvisible && state.players[playerId].invisibleCooldown === 0)
+            keyUpdate = { turnInvisible: true };
 
         // Send key state update to server if one of the movement keys were
         // pressed or released.
@@ -167,6 +173,9 @@ export default {
 
         updateOtherPlayers();
 
+        // Dim overlay if player is invisible.
+        document.getElementById('dim-overlay').style.display = player.isInvisible ? 'block' : 'none';
+
         // Update text overlay.
         let text;
         if (state.winner === 'human')
@@ -174,14 +183,23 @@ export default {
         else if (state.winner === 'zombie')
             text = 'The zombies won!';
         else {
-            if (state.players[playerId].isZombie)
+            if (player.isZombie)
                 text = 'You are a zombie';
-            else
+            else {
                 text = 'You are a human';
+            }
 
             text += ` (${Math.ceil(state.secondsRemaining)} seconds remaining)`;
+
+            // Add invisibility instructions.
+            if (!player.isZombie && !player.isInvisible) {
+                if (player.invisibleCooldown > 0)
+                    text += `<br>Invisibility on cooldown (${Math.ceil(player.invisibleCooldown)} seconds remaining)`;
+                else
+                    text += '<br>Press space to turn invisible';
+            }
         }
-        document.getElementById('text-overlay').innerText = text;
+        document.getElementById('text-overlay').innerHTML = text;
 
         renderer.render(scene, camera);
 
@@ -195,9 +213,9 @@ export default {
     },
     matchmakingMessageReceived(message) {
         if (message.type === 'name-taken')
-            document.getElementById('name-status').innerText = 'That name has already been taken.';
+            document.getElementById('name-status').innerHTML = 'That name has already been taken.';
         else if (message.type === 'name-invalid') {
-            document.getElementById('name-status').innerText = 'Invalid name.';
+            document.getElementById('name-status').innerHTML = 'Invalid name.';
         } else if (message.type === 'name-accepted')
             showSection('lobby-list');
         else if (message.type === 'lobbies-updated') {
@@ -298,7 +316,7 @@ export default {
         sendMatchmakingMessage({ type: 'start-game' });
 
         document.getElementById('start-game-button').disabled = 'disabled';
-        document.getElementById('start-game-button').innerText = 'Starting Game...';
+        document.getElementById('start-game-button').innerHTML = 'Starting Game...';
     }
 };
 
@@ -382,34 +400,49 @@ function updateCamera(player) {
 function updateOtherPlayers() {
     // Update other player meshes.
     util.onDiff(previousState ? previousState.players : {}, state.players, {
-        add(otherPlayerId, playerState) {
+        add(otherPlayerId, otherPlayerState) {
             // Don't add mesh for the user, just the other players.
             if (otherPlayerId === playerId)
                 return;
 
-            let playerGeometry = new three.SphereGeometry(playerState.isZombie ? config.zombieRadius : config.humanRadius, 16, 12);
-            let playerMaterial = new three.MeshPhongMaterial({ color: playerState.isZombie ? config.zombieColor : config.humanColor });
+            let playerGeometry = new three.SphereGeometry(otherPlayerState.isZombie ? config.zombieRadius : config.humanRadius, 16, 12);
+            let playerMaterial = new three.MeshPhongMaterial({ color: otherPlayerState.isZombie ? config.zombieColor : config.humanColor });
             let playerMesh = new three.Mesh(playerGeometry, playerMaterial);
             scene.add(playerMesh);
 
             playerMeshes[otherPlayerId] = playerMesh;
         },
-        remove(otherPlayerId, playerState) {
+        remove(otherPlayerId, otherPlayerState) {
             if (otherPlayerId === playerId)
                 return;
 
             scene.remove(playerMeshes[otherPlayerId]);
             delete playerMeshes[otherPlayerId];
         },
-        exists(otherPlayerId, playerState) {
+        exists(otherPlayerId, otherPlayerState) {
             if (otherPlayerId === playerId)
                 return;
 
             let playerMesh = playerMeshes[otherPlayerId];
-            let playerPosition = new three.Vector3(...playerState.position);
+            let playerPosition = new three.Vector3(...otherPlayerState.position);
             playerMesh.position.copy(playerPosition);
         }
     });
+
+    // Make player meshes invisible.
+    if (previousState) {
+        for (let otherPlayerId in state.players) {
+            if (!(otherPlayerId in previousState.players && otherPlayerId in playerMeshes))
+                continue;
+
+            if (previousState.players[otherPlayerId].isInvisible !== state.players[otherPlayerId].isInvisible) {
+                let playerMesh = playerMeshes[otherPlayerId];
+                playerMesh.material.transparent = state.players[otherPlayerId].isInvisible ? true : false;
+                playerMesh.material.opacity = state.players[otherPlayerId].isInvisible ? 0 : 1;
+                playerMesh.material.needsUpdate = true;
+            }
+        }
+    }
 
     // Interpolate other player states to make movement look smooth.
     if (previousServerState) {

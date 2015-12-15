@@ -21,6 +21,9 @@ export function addPlayer({ state, maze }, playerId, isZombie = false) {
     state.players[playerId] = {
         position: [x, 0, y],
         isZombie,
+        isInvisible: false,
+        invisibleDuration: 0,
+        invisibleCooldown: 0,
         inputState: {
             mouse: {
                 x: 0,
@@ -29,7 +32,8 @@ export function addPlayer({ state, maze }, playerId, isZombie = false) {
             forward: false,
             backward: false,
             right: false,
-            left: false
+            left: false,
+            turnInvisible: false
         }
     };
 }
@@ -67,8 +71,33 @@ export function updatePlayer({ state, maze }, playerId, delta) {
 
     movePlayer({ player, maze }, delta);
 
-    if (player.isZombie)
+    if (player.isZombie) {
+        // Allow zombies to turn humans into zombies when they collide.
         eatOtherPlayers(state, playerId);
+    } else {
+        // Allow humans to turn invisible.
+        if (!player.isInvisible) {
+            // If the player hasn't turned invisible recently and wants to turn invisible, turn invisible.
+            player.invisibleCooldown = Math.max(0, player.invisibleCooldown - delta);
+
+            if (player.inputState.turnInvisible && player.invisibleCooldown === 0) {
+                console.log(player);
+
+                player.isInvisible = true;
+                player.invisibleDuration = 0;
+            }
+        } else {
+            // Make player invisible again after the invisibility duration.
+            player.invisibleDuration += delta;
+
+            if (player.invisibleDuration >= config.invisibleDuration) {
+                console.log(player);
+
+                player.isInvisible = false;
+                player.invisibleCooldown = config.invisibleCooldown;
+            }
+        }
+    }
 }
 
 function movePlayer({ player, maze }, delta) {
